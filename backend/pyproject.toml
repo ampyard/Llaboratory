@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 include = ["app*"]
 
 [project]
-name = "model-tester-harness"
+name = "llaboratory"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [

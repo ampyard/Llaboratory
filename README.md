@@ -1,6 +1,6 @@
-# Model Tester Harness
+# Llaboratory
 
-A self-hostable harness for studying how LLMs behave when offered a set of fake tools.
+A self-hostable, open-source laboratory for studying how LLMs behave when offered a set of fake tools.
 
 ## Quick Start
 

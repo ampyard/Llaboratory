@@ -16,7 +16,7 @@ export default function Layout() {
         <div className="px-5 py-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-indigo-600" />
-            <span className="font-semibold text-gray-900 text-sm">Model Tester</span>
+            <span className="font-semibold text-gray-900 text-sm">Llaboratory</span>
           </div>
         </div>
         <nav className="flex-1 p-3 space-y-0.5">

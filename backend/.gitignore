@@ -1,3 +1,7 @@
+harness.db*
+test_harness.db*
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

@@ -395,7 +395,7 @@ wheels = [
 ]
 
 [[package]]
-name = "model-tester-harness"
+name = "llaboratory"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

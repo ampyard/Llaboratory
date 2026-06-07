@@ -1,3 +1,6 @@
+<img src="logo.png" style="align: center; height: '300px'"></img>
+
+
 # Llaboratory
 
 A self-hostable, open-source laboratory for studying how LLMs behave when offered a set of fake tools.

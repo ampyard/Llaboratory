@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { Wrench, Server, FlaskConical, Play, BarChart3 } from 'lucide-react'
+import { Wrench, Server, FlaskConical, Play } from 'lucide-react'
 
 const nav = [
   { to: '/tools', label: 'Tool Library', icon: Wrench },
@@ -13,11 +13,9 @@ export default function Layout() {
     <div className="min-h-screen flex">
       {/* Sidebar */}
       <aside className="w-56 bg-white border-r border-gray-200 flex flex-col shrink-0">
-        <div className="px-5 py-4 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-indigo-600" />
-            <span className="font-semibold text-gray-900 text-sm">Llaboratory</span>
-          </div>
+        <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2.5">
+          <img src="/logo-small.png" alt="Llaboratory" className="h-10 w-auto shrink-0" />
+          <span className="font-bold text-gray-900 text-base tracking-tight">Llaboratory</span>
         </div>
         <nav className="flex-1 p-3 space-y-0.5">
           {nav.map(({ to, label, icon: Icon }) => (

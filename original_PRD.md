@@ -1,7 +1,6 @@
 # PRD: LLM Tool-Calling Testing Harness
 
 **Status:** Draft v2
-**Owner:** (you)
 **Last updated:** 2026-06-07
 
 > **v2 changelog (resolved gaps from v1 review):** added credential handling (§10.14); reworded the reproducibility guarantee to cover *setup*, not *outcomes* (§12); set a concurrency cap of 5 with WAL mode (§9.6, §10.9); added a deterministic `occurrence_index` to manual-replay keying and a `tool_call_id` for event correlation (§5.1, §10.5); specified the normalized internal representation and scoped v1 to OpenAI-compatible providers with streaming (§8); paused the wall-clock timer during `awaiting_manual_input` (§9.2); gated execution of imported dynamic tools behind explicit user approval (§3, §10.6, §10.13); and reserved a `reasoning` content part plus reasoning/cache token fields (costing still deferred) (§5.1, §8, §10.8).

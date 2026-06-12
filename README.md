@@ -1,6 +1,14 @@
 <div align="center">
-    <img src="logo.png" style="align: center; width:30%; height: auto"></img>
+<img src="logo.png" style="align: center; width:30%; height: auto"></img>
+
+<p>
+    
+[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)   [![CI](https://github.com/vivganes/Llaboratory/actions/workflows/ci.yml/badge.svg)](https://github.com/vivganes/Llaboratory/actions/workflows/ci.yml)
+</p>
 </div>
+
+
+
 
 # Llaboratory
 

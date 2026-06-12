@@ -8,6 +8,14 @@ A self-hostable, open-source laboratory for studying how LLMs behave when offere
 
 ## Quick Start
 
+### Docker Compose (recommended)
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:5173 for the UI. The frontend will proxy API calls to the backend container on port 8000.
+
 ### Backend
 
 ```bash

@@ -26,6 +26,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-cov>=6.0",
     "httpx>=0.28",
+    "ruff>=0.15.10",
 ]
 
 [tool.pytest.ini_options]

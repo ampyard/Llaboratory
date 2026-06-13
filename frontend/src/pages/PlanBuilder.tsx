@@ -199,7 +199,7 @@ export default function PlanBuilder() {
             />
           </div>
         )}
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-96 overflow-y-auto">
           {(toolSearch
             ? allTools.filter(t =>
                 t.name.toLowerCase().includes(toolSearch.toLowerCase()) ||

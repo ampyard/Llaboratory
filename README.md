@@ -3,7 +3,7 @@
 
 <p>
     
-[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)   [![CI](https://github.com/vivganes/Llaboratory/actions/workflows/ci.yml/badge.svg)](https://github.com/vivganes/Llaboratory/actions/workflows/ci.yml)
+[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)   [![CI](https://github.com/ampyard/Llaboratory/actions/workflows/ci.yml/badge.svg)](https://github.com/ampyard/Llaboratory/actions/workflows/ci.yml)
 </p>
 </div>
 
@@ -73,3 +73,6 @@ uv run pytest -v --tb=short
 cd frontend
 npm test
 ```
+
+
+[![Hits](https://hitcount.dev/p/ampyard/Llaboratory.svg)](https://hitcount.dev/p/ampyard/Llaboratory)

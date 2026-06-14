@@ -105,8 +105,8 @@ def test_abort_already_completed_fails(client):
     assert r.status_code == 400
 
 
-def test_session_run_fails_missing_env_var(client):
-    """Running with a missing API key env var should immediately error the session."""
+def test_session_run_continues_with_missing_env_var(client):
+    """Running with a missing API key env var should NOT fail fast — local models are keyless."""
     import asyncio
     pv_id = _setup(client)
     session = client.post("/api/sessions", json={"plan_version_id": pv_id}).json()
@@ -123,5 +123,6 @@ def test_session_run_fails_missing_env_var(client):
     asyncio.get_event_loop().run_until_complete(run_session(session_id, TestingSessionLocal))
 
     r = client.get(f"/api/sessions/{session_id}")
-    assert r.json()["status"] == "errored"
-    assert "TEST_KEY" in r.json()["termination_reason"]
+    # The session should NOT fail with "missing_env_var" — it proceeds and fails
+    # later with a connection/network error from the actual HTTP call
+    assert "missing_env_var" not in (r.json().get("termination_reason") or "")

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, StopCircle, BarChart2, Download, Play } from 'lucide-react'
+import { ArrowLeft, StopCircle, Play } from 'lucide-react'
 import { api } from '../api/client'
 import StatusBadge from '../components/StatusBadge'
 import EventTimeline from '../components/EventTimeline'
@@ -88,12 +88,6 @@ export default function SessionDetail() {
   const displayEvents = events.length > 0 ? events : liveEvents
   const totals = session?.totals ?? {}
 
-  const { data: analysis } = useQuery({
-    queryKey: ['analysis', session?.plan_version_id],
-    queryFn: () => api.analysis.planVersion(session!.plan_version_id),
-    enabled: !!session && session.status === 'completed',
-  })
-
   return (
     <div className="p-6 max-w-4xl">
       <div className="flex items-center gap-3 mb-5">
@@ -145,14 +139,6 @@ export default function SessionDetail() {
               <StopCircle className="w-3.5 h-3.5" /> Abort
             </button>
           )}
-          {session?.plan_version_id && analysis && (
-            <a
-              href={api.analysis.exportCsvUrl(session.plan_version_id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50"
-            >
-              <Download className="w-3.5 h-3.5" /> CSV
-            </a>
-          )}
         </div>
       </div>
 
@@ -201,28 +187,6 @@ export default function SessionDetail() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Analysis summary for completed sessions */}
-      {analysis && session?.status === 'completed' && (
-        <div className="mt-4 bg-white border border-gray-200 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart2 className="w-4 h-4 text-indigo-600" />
-            <h2 className="text-sm font-semibold text-gray-700">Plan Version Analysis</h2>
-            <span className="text-xs text-gray-400">({(analysis as Record<string, unknown>).session_count as number} session(s))</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {([
-              ['Completed', (analysis as Record<string, unknown>).completed],
-              ['Errored', (analysis as Record<string, unknown>).errored],
-              ['No tool call', `${(((analysis as Record<string, unknown>).no_tool_call_rate as number) * 100).toFixed(0)}%`],
-            ] as [string, unknown][]).map(([label, value]) => (
-              <div key={label} className="text-center">
-                <p className="text-xs text-gray-400">{label}</p>
-                <p className="text-base font-semibold text-gray-900">{String(value)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

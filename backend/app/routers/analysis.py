@@ -40,6 +40,8 @@ def _session_metrics(session: Session) -> dict:
         "session_id": session.id,
         "status": session.status,
         "termination_reason": session.termination_reason,
+        "started_at": session.started_at.isoformat() if session.started_at else None,
+        "ended_at": session.ended_at.isoformat() if session.ended_at else None,
         "any_tool_called": bool(tool_calls),
         "tool_calls": tool_calls,
         "tool_sequence": tool_sequence,

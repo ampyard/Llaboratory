@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Plus, Play, Trash2, ChevronRight } from 'lucide-react'
+import { Plus, Play, Trash2, ChevronRight, BarChart2 } from 'lucide-react'
 import { api } from '../api/client'
 import type { Plan } from '../types'
 
@@ -79,6 +79,12 @@ function PlanCard({ plan, onDelete }: { plan: Plan; onDelete: () => void }) {
         >
           <Play className="w-3.5 h-3.5" /> Run
         </button>
+        <Link
+          to={`/plans/${plan.id}/stats`}
+          className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+        >
+          <BarChart2 className="w-4 h-4" />
+        </Link>
         <Link to={`/plans/${plan.id}`} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded">
           <ChevronRight className="w-4 h-4" />
         </Link>

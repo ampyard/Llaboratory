@@ -10,7 +10,7 @@ def _uuid() -> str:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(timezone.utc)
 
 
 plan_version_tools = Table(
@@ -30,7 +30,7 @@ class Tool(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     tags: Mapped[str] = mapped_column(Text, default="[]")  # JSON array of strings
     built_in: Mapped[bool] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     versions: Mapped[list["ToolVersion"]] = relationship(
         back_populates="tool", order_by="ToolVersion.version_number", cascade="all, delete-orphan"
@@ -43,7 +43,7 @@ class ToolVersion(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     tool_id: Mapped[str] = mapped_column(String, ForeignKey("tools.id", ondelete="CASCADE"), nullable=False)
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     display_name: Mapped[str] = mapped_column(String, nullable=False)
     model_facing_description: Mapped[str] = mapped_column(Text, default="")
@@ -69,7 +69,7 @@ class ModelConfig(Base):
     api_key_env: Mapped[str] = mapped_column(String, nullable=False)
     input_cost_per_1k: Mapped[float] = mapped_column(Float, default=0.0)
     output_cost_per_1k: Mapped[float] = mapped_column(Float, default=0.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
 class Plan(Base):
@@ -78,7 +78,7 @@ class Plan(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     versions: Mapped[list["PlanVersion"]] = relationship(
         back_populates="plan", order_by="PlanVersion.version_number", cascade="all, delete-orphan"
@@ -91,7 +91,7 @@ class PlanVersion(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     plan_id: Mapped[str] = mapped_column(String, ForeignKey("plans.id", ondelete="CASCADE"), nullable=False)
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     model_config_snapshot: Mapped[str] = mapped_column(Text, nullable=False)  # frozen JSON copy
     system_prompt: Mapped[str] = mapped_column(Text, default="")
@@ -113,8 +113,8 @@ class Session(Base):
     plan_version_id: Mapped[str] = mapped_column(
         String, ForeignKey("plan_versions.id", ondelete="CASCADE"), nullable=False
     )
-    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String, default="pending")
     termination_reason: Mapped[str | None] = mapped_column(String, nullable=True)
     tool_order_used: Mapped[str] = mapped_column(Text, default="[]")  # JSON list of tool_version_ids
@@ -134,7 +134,7 @@ class Event(Base):
         String, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
     )
     sequence_no: Mapped[int] = mapped_column(Integer, nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     type: Mapped[str] = mapped_column(String, nullable=False)
     payload: Mapped[str] = mapped_column(Text, default="{}")  # typed JSON per event type
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)

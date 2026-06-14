@@ -125,9 +125,6 @@ async def _run(session_id: str, db: DBSession) -> None:
     run_settings = json.loads(plan_version.run_settings)
     tool_versions: list[ToolVersion] = list(plan_version.tool_versions)
 
-    # Resolve API key (ok to be empty for local models)
-    api_key_env = mcs.get("api_key_env", "")
-
     max_turns: int = run_settings.get("max_turns", 20)
     max_tool_calls: int = run_settings.get("max_tool_calls", 50)
     timeout_seconds: int = run_settings.get("timeout_seconds", 300)

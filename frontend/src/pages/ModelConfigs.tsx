@@ -12,7 +12,7 @@ interface FormState {
 
 const EMPTY: FormState = {
   name: '', base_url: 'https://openrouter.ai/api/v1', model_snapshot: '',
-  api_key_env: 'OPENROUTER_API_KEY', input_cost_per_1k: '0', output_cost_per_1k: '0',
+  api_key_env: '', input_cost_per_1k: '0', output_cost_per_1k: '0',
   temperature: '1', max_tokens: '4096',
 }
 
@@ -89,7 +89,7 @@ export default function ModelConfigs() {
               </div>
               <p className="text-xs text-gray-400 truncate">{mc.base_url}</p>
               <div className="flex gap-3 mt-1 text-xs text-gray-400">
-                <span>Key env: <code className="bg-gray-100 px-1 rounded text-gray-600">{mc.api_key_env}</code></span>
+                {mc.api_key_env && <span>Key env: <code className="bg-gray-100 px-1 rounded text-gray-600">{mc.api_key_env}</code></span>}
                 {mc.input_cost_per_1k > 0 && <span>In: ${mc.input_cost_per_1k}/1k</span>}
                 {mc.output_cost_per_1k > 0 && <span>Out: ${mc.output_cost_per_1k}/1k</span>}
               </div>

@@ -63,6 +63,17 @@ describe('tools API', () => {
   })
 })
 
+describe('plans API', () => {
+  test('clone calls POST /api/plans/:id/clone', async () => {
+    mockFetch.mockReturnValue(okResponse({ id: 'plan-clone' }))
+    const api = await getApi()
+    await api.plans.clone('plan-1')
+    const [url, init] = mockFetch.mock.calls[0]
+    expect(url).toBe('/api/plans/plan-1/clone')
+    expect(init.method).toBe('POST')
+  })
+})
+
 describe('sessions API', () => {
   test('list with no params calls /api/sessions', async () => {
     mockFetch.mockReturnValue(okResponse([]))

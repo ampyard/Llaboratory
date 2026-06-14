@@ -87,6 +87,38 @@ def create_plan_version(plan_id: str, body: PlanVersionCreate, db: Session = Dep
     return pv
 
 
+@router.post("/{plan_id}/clone", response_model=PlanOut, status_code=201)
+def clone_plan(plan_id: str, db: Session = Depends(get_db)):
+    original = db.get(Plan, plan_id)
+    if not original:
+        raise HTTPException(404, "Plan not found")
+
+    source_pv = (original.versions or [None])[-1]
+    if not source_pv:
+        raise HTTPException(400, "Original plan has no versions to clone.")
+
+    clone = Plan(
+        name=f"{original.name}_clone",
+        description=original.description,
+    )
+    db.add(clone)
+    db.flush()
+
+    pv = PlanVersion(
+        plan_id=clone.id,
+        version_number=1,
+        model_config_snapshot=source_pv.model_config_snapshot,
+        system_prompt=source_pv.system_prompt,
+        user_prompt=source_pv.user_prompt,
+        run_settings=source_pv.run_settings,
+    )
+    pv.tool_versions = list(source_pv.tool_versions)
+    db.add(pv)
+    db.commit()
+    db.refresh(clone)
+    return clone
+
+
 @router.delete("/{plan_id}", status_code=204)
 def delete_plan(plan_id: str, db: Session = Depends(get_db)):
     plan = db.get(Plan, plan_id)

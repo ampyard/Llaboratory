@@ -24,9 +24,10 @@ async def stream_completion(
     """Yield raw SSE chunks from the provider."""
     api_key = os.environ.get(api_key_env, "")
     headers = {
-        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     payload: dict = {
         "model": model,
         "messages": messages,

@@ -136,6 +136,31 @@ def test_bad_tool_version_id(client):
     assert r.status_code == 400
 
 
+def test_clone_plan(client):
+    tool = _make_tool(client)
+    mc = _make_model_config(client)
+    tv_id = tool["versions"][0]["id"]
+    plan = _make_plan(client, tv_id, mc["id"]).json()
+    plan_id = plan["id"]
+
+    r = client.post(f"/api/plans/{plan_id}/clone")
+    assert r.status_code == 201
+    clone = r.json()
+
+    assert clone["name"] == "test plan_clone"
+    assert clone["description"] == "A test plan"
+    assert len(clone["versions"]) == 1
+    pv = clone["versions"][0]
+    assert pv["version_number"] == 1
+    assert pv["system_prompt"] == "You are a helpful assistant."
+    assert pv["user_prompt"] == "Please search for cats."
+    assert len(pv["tool_versions"]) == 1
+    assert pv["model_config_snapshot"]["model_snapshot"] == "gpt-4o-mini"
+
+    # Original still exists
+    assert client.get(f"/api/plans/{plan_id}").status_code == 200
+
+
 def test_delete_plan(client):
     tool = _make_tool(client)
     mc = _make_model_config(client)

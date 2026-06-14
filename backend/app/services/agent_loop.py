@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import os
 import time
 import uuid
 from datetime import datetime, timezone
@@ -126,18 +125,8 @@ async def _run(session_id: str, db: DBSession) -> None:
     run_settings = json.loads(plan_version.run_settings)
     tool_versions: list[ToolVersion] = list(plan_version.tool_versions)
 
-    # Resolve API key
-    api_key_env = mcs["api_key_env"]
-    if not os.environ.get(api_key_env):
-        session.status = "errored"
-        session.termination_reason = f"missing_env_var:{api_key_env}"
-        session.ended_at = _utcnow()
-        db.commit()
-        q = _session_queues.get(session_id)
-        if q:
-            await q.put({"type": "error", "message": f"Environment variable '{api_key_env}' is not set."})
-            await q.put(None)  # sentinel
-        return
+    # Resolve API key (ok to be empty for local models)
+    api_key_env = mcs.get("api_key_env", "")
 
     max_turns: int = run_settings.get("max_turns", 20)
     max_tool_calls: int = run_settings.get("max_tool_calls", 50)

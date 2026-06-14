@@ -49,6 +49,7 @@ export const api = {
     create: (body: unknown) => req<Plan>('/plans', { method: 'POST', body: JSON.stringify(body) }),
     addVersion: (id: string, body: unknown) =>
       req<PlanVersion>(`/plans/${id}/versions`, { method: 'POST', body: JSON.stringify(body) }),
+    clone: (id: string) => req<Plan>(`/plans/${id}/clone`, { method: 'POST' }),
     delete: (id: string) => req<void>(`/plans/${id}`, { method: 'DELETE' }),
   },
 

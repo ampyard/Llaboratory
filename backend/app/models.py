@@ -66,7 +66,7 @@ class ModelConfig(Base):
     base_url: Mapped[str] = mapped_column(String, nullable=False)
     model_snapshot: Mapped[str] = mapped_column(String, nullable=False)
     params: Mapped[str] = mapped_column(Text, default='{}')  # JSON: temperature, top_p, seed, max_tokens, tool_choice
-    api_key_env: Mapped[str] = mapped_column(String, nullable=False)
+    api_key_env: Mapped[str] = mapped_column(String, nullable=False, default="")
     input_cost_per_1k: Mapped[float] = mapped_column(Float, default=0.0)
     output_cost_per_1k: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

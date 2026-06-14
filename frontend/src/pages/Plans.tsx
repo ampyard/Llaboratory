@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Plus, Play, Trash2, ChevronRight, BarChart2 } from 'lucide-react'
+import { Plus, Play, Trash2, ChevronRight, BarChart2, Copy } from 'lucide-react'
 import { api } from '../api/client'
 import type { Plan } from '../types'
 
@@ -42,6 +42,10 @@ export default function Plans() {
 function PlanCard({ plan, onDelete }: { plan: Plan; onDelete: () => void }) {
   const latest = plan.versions[plan.versions.length - 1]
   const qc = useQueryClient()
+  const cloneMut = useMutation({
+    mutationFn: () => api.plans.clone(plan.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['plans'] }),
+  })
 
   async function runSession() {
     if (!latest) return
@@ -88,6 +92,9 @@ function PlanCard({ plan, onDelete }: { plan: Plan; onDelete: () => void }) {
         <Link to={`/plans/${plan.id}`} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded">
           <ChevronRight className="w-4 h-4" />
         </Link>
+        <button onClick={() => cloneMut.mutate()} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded">
+          <Copy className="w-4 h-4" />
+        </button>
         <button onClick={() => { if (confirm(`Delete "${plan.name}"?`)) onDelete() }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
           <Trash2 className="w-4 h-4" />
         </button>

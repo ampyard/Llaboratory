@@ -177,6 +177,12 @@ async def _run(session_id: str, db: DBSession) -> None:
                 seq += 1
                 break
 
+            # Cooperative abort: user requested stop via /abort
+            db.refresh(session)
+            if session.status == "aborted":
+                termination_reason = "aborted"
+                break
+
             total_turns += 1
 
             await _emit(db, session_id, seq, "model_request", {
@@ -247,6 +253,12 @@ async def _run(session_id: str, db: DBSession) -> None:
             finish_reason = response["finish_reason"]
             tool_calls = response["tool_calls"]
 
+            # Check abort after model returns — catches aborts that arrived during the HTTP call
+            db.refresh(session)
+            if session.status == "aborted":
+                termination_reason = "aborted"
+                break
+
             if not tool_calls or finish_reason == "end_turn":
                 termination_reason = "completed_no_tool_call"
                 break
@@ -273,6 +285,12 @@ async def _run(session_id: str, db: DBSession) -> None:
 
             # Execute each tool call
             for tc in tool_calls:
+                # Check abort before each tool call
+                db.refresh(session)
+                if session.status == "aborted":
+                    termination_reason = "aborted"
+                    break
+
                 total_tool_calls += 1
                 tc_id = tc["tool_call_id"]
                 name = tc["name"]
@@ -380,7 +398,7 @@ async def _run(session_id: str, db: DBSession) -> None:
                     termination_reason = "max_tool_calls"
                     break
 
-            if termination_reason in ("max_tool_calls", "loop_guard"):
+            if termination_reason in ("max_tool_calls", "loop_guard", "aborted"):
                 break
 
         else:
@@ -410,9 +428,12 @@ async def _run(session_id: str, db: DBSession) -> None:
         "totals": totals,
     })
 
-    session.status = "completed" if termination_reason not in ("errored",) else "errored"
-    if termination_reason == "timeout":
+    if termination_reason == "errored":
+        session.status = "errored"
+    elif termination_reason in ("timeout", "aborted"):
         session.status = "aborted"
+    else:
+        session.status = "completed"
     session.termination_reason = termination_reason
     session.ended_at = _utcnow()
     session.totals = json.dumps(totals)

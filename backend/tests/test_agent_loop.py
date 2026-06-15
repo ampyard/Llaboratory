@@ -1,6 +1,271 @@
 """Unit tests for agent loop components (no real API calls)."""
 
+import json
+from unittest.mock import AsyncMock, patch
+
+
+from app.models import Plan, PlanVersion, Session
+from app.services.agent_loop import run_session
+from app.services.provider import ProviderError
 from app.services.tool_executor import execute_tool, validate_args
+from tests.conftest import TestingSessionLocal
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+
+_MCS = json.dumps({
+    "base_url": "https://api.example.com/v1",
+    "api_key_env": "FAKE_KEY",
+    "model_snapshot": "test-model",
+    "params": "{}",
+    "input_cost_per_1k": 0.0,
+    "output_cost_per_1k": 0.0,
+})
+
+_RUN_SETTINGS = json.dumps({
+    "max_turns": 20,
+    "max_tool_calls": 50,
+    "timeout_seconds": 300,
+})
+
+
+def _make_session(db) -> str:
+    plan = Plan(name="test-plan")
+    db.add(plan)
+    db.flush()
+
+    pv = PlanVersion(
+        plan_id=plan.id,
+        version_number=1,
+        model_config_snapshot=_MCS,
+        system_prompt="",
+        user_prompt="Hello",
+        run_settings=_RUN_SETTINGS,
+    )
+    db.add(pv)
+    db.flush()
+
+    session = Session(plan_version_id=pv.id, status="pending")
+    db.add(session)
+    db.commit()
+    return session.id
+
+
+def _no_tool_response():
+    return {
+        "content_parts": [{"type": "text", "content": "Done."}],
+        "finish_reason": "end_turn",
+        "tool_calls": [],
+        "token_usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+
+def _tool_call_response(name="dummy_tool"):
+    return {
+        "content_parts": [],
+        "finish_reason": "tool_call",
+        "tool_calls": [{
+            "tool_call_id": "tc-1",
+            "name": name,
+            "raw_args": "{}",
+            "parsed_args": {},
+        }],
+        "token_usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+
+# ── loop guard: abort ─────────────────────────────────────────────────────────
+
+async def test_abort_during_tool_call_stops_loop(db):
+    """Abort set after first tool_call event: loop catches abort before the second tool call runs."""
+    session_id = _make_session(db)
+
+    two_tc_response = {
+        "content_parts": [],
+        "finish_reason": "tool_call",
+        "tool_calls": [
+            {"tool_call_id": "tc-1", "name": "tool_a", "raw_args": "{}", "parsed_args": {}},
+            {"tool_call_id": "tc-2", "name": "tool_b", "raw_args": "{}", "parsed_args": {}},
+        ],
+        "token_usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+    import app.services.agent_loop as loop_module
+    original_emit = loop_module._emit
+    tool_call_emit_count = 0
+
+    async def patched_emit(db_arg, sid, seq, event_type, payload, **kwargs):
+        nonlocal tool_call_emit_count
+        result = await original_emit(db_arg, sid, seq, event_type, payload, **kwargs)
+        if event_type == "tool_call":
+            tool_call_emit_count += 1
+            if tool_call_emit_count == 1:
+                # Simulate abort arriving while tc-1 is being processed
+                abort_db = TestingSessionLocal()
+                try:
+                    s = abort_db.get(Session, session_id)
+                    s.status = "aborted"
+                    abort_db.commit()
+                finally:
+                    abort_db.close()
+        return result
+
+    with patch("app.services.agent_loop.assemble_response", AsyncMock(return_value=two_tc_response)):
+        with patch("app.services.agent_loop._emit", patched_emit):
+            await run_session(session_id, TestingSessionLocal)
+
+    final = db.get(Session, session_id)
+    db.refresh(final)
+    assert final.status == "aborted"
+    assert final.termination_reason == "aborted"
+    # Only tc-1 emitted; tc-2's pre-check caught the abort before it ran
+    assert tool_call_emit_count == 1
+
+
+async def test_abort_during_model_call_no_tool_calls(db):
+    """Abort set while the model call runs, model returns no tool calls: still aborts."""
+    session_id = _make_session(db)
+
+    async def mock_assemble(**kwargs):
+        # Simulate abort arriving while the HTTP call was in flight
+        abort_db = TestingSessionLocal()
+        try:
+            s = abort_db.get(Session, session_id)
+            s.status = "aborted"
+            abort_db.commit()
+        finally:
+            abort_db.close()
+        # Model finishes cleanly with no tool calls — the old bug would mark this "completed"
+        return _no_tool_response()
+
+    with patch("app.services.agent_loop.assemble_response", mock_assemble):
+        await run_session(session_id, TestingSessionLocal)
+
+    final = db.get(Session, session_id)
+    db.refresh(final)
+    assert final.status == "aborted"
+    assert final.termination_reason == "aborted"
+
+
+async def test_abort_stops_loop_and_sets_status(db):
+    """Abort set in DB mid-run: loop exits and final status is 'aborted'."""
+    session_id = _make_session(db)
+    model_call_count = 0
+
+    async def mock_assemble(**kwargs):
+        nonlocal model_call_count
+        model_call_count += 1
+        # Write abort via a separate DB connection (simulates the /abort endpoint)
+        abort_db = TestingSessionLocal()
+        try:
+            s = abort_db.get(Session, session_id)
+            s.status = "aborted"
+            abort_db.commit()
+        finally:
+            abort_db.close()
+        # Return tool calls so the loop would continue — abort check must stop it
+        return _tool_call_response()
+
+    with patch("app.services.agent_loop.assemble_response", mock_assemble):
+        await run_session(session_id, TestingSessionLocal)
+
+    db.refresh(db.get(Session, session_id))
+    final = db.get(Session, session_id)
+    assert final.status == "aborted"
+    assert final.termination_reason == "aborted"
+    # Model called once; the post-response abort check stopped the loop
+    assert model_call_count == 1
+
+
+async def test_abort_termination_reason_in_session_end_event(db):
+    """session_end event carries termination_reason='aborted'."""
+    session_id = _make_session(db)
+
+    async def mock_assemble(**kwargs):
+        abort_db = TestingSessionLocal()
+        try:
+            s = abort_db.get(Session, session_id)
+            s.status = "aborted"
+            abort_db.commit()
+        finally:
+            abort_db.close()
+        return _tool_call_response()
+
+    with patch("app.services.agent_loop.assemble_response", mock_assemble):
+        await run_session(session_id, TestingSessionLocal)
+
+    session = db.get(Session, session_id)
+    db.refresh(session)
+    end_event = next(
+        e for e in session.events if e.type == "session_end"
+    )
+    payload = json.loads(end_event.payload)
+    assert payload["termination_reason"] == "aborted"
+
+
+# ── normal completion ─────────────────────────────────────────────────────────
+
+async def test_normal_completion_sets_completed_status(db):
+    """Model returns no tool calls → session ends as 'completed'."""
+    session_id = _make_session(db)
+
+    with patch("app.services.agent_loop.assemble_response", AsyncMock(return_value=_no_tool_response())):
+        await run_session(session_id, TestingSessionLocal)
+
+    final = db.get(Session, session_id)
+    assert final.status == "completed"
+    assert final.termination_reason == "completed_no_tool_call"
+
+
+# ── error handling ────────────────────────────────────────────────────────────
+
+async def test_provider_error_sets_errored_status(db):
+    """Non-retryable ProviderError → session ends as 'errored'."""
+    session_id = _make_session(db)
+
+    async def mock_assemble(**kwargs):
+        raise ProviderError("boom", retryable=False)
+
+    with patch("app.services.agent_loop.assemble_response", mock_assemble):
+        await run_session(session_id, TestingSessionLocal)
+
+    final = db.get(Session, session_id)
+    assert final.status == "errored"
+    assert final.termination_reason == "errored"
+
+
+# ── timeout ───────────────────────────────────────────────────────────────────
+
+async def test_timeout_sets_aborted_status(db):
+    """Timeout (timeout_seconds=-1 so it fires immediately) → status 'aborted'."""
+    plan = Plan(name="timeout-plan")
+    db.add(plan)
+    db.flush()
+
+    fast_settings = json.dumps({
+        "max_turns": 20,
+        "max_tool_calls": 50,
+        "timeout_seconds": -1,  # always exceeded
+    })
+    pv = PlanVersion(
+        plan_id=plan.id,
+        version_number=1,
+        model_config_snapshot=_MCS,
+        system_prompt="",
+        user_prompt="Hello",
+        run_settings=fast_settings,
+    )
+    db.add(pv)
+    db.flush()
+    session = Session(plan_version_id=pv.id, status="pending")
+    db.add(session)
+    db.commit()
+
+    with patch("app.services.agent_loop.assemble_response", AsyncMock(return_value=_no_tool_response())):
+        await run_session(session.id, TestingSessionLocal)
+
+    db.refresh(session)
+    assert session.status == "aborted"
+    assert session.termination_reason == "timeout"
 
 
 # ── validate_args ────────────────────────────────────────────────────────────

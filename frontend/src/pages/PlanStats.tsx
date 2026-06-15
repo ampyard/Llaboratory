@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, BarChart2, Download } from 'lucide-react'
 import { api } from '../api/client'
 
 export default function PlanStats() {
   const { planId } = useParams<{ planId: string }>()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const versionIdParam = searchParams.get('versionId')
 
   const { data: plan } = useQuery({
     queryKey: ['plans', planId],
@@ -12,12 +15,14 @@ export default function PlanStats() {
     enabled: !!planId,
   })
 
-  const latest = plan?.versions[plan.versions.length - 1]
+  const targetVersion = versionIdParam
+    ? plan?.versions.find(v => v.id === versionIdParam)
+    : plan?.versions[plan.versions.length - 1]
 
   const { data: analysis, isLoading } = useQuery({
-    queryKey: ['analysis', latest?.id],
-    queryFn: () => api.analysis.planVersion(latest!.id),
-    enabled: !!latest,
+    queryKey: ['analysis', targetVersion?.id],
+    queryFn: () => api.analysis.planVersion(targetVersion!.id),
+    enabled: !!targetVersion,
   })
 
   return (
@@ -27,7 +32,11 @@ export default function PlanStats() {
           <ArrowLeft className="w-4 h-4" /> Plans
         </Link>
         <span className="text-gray-300">/</span>
-        <span className="text-sm font-mono text-gray-400">{plan?.name ?? planId?.slice(0, 8)}</span>
+        {planId && (
+          <Link to={`/plans/${planId}/versions`} className="text-sm font-mono text-gray-400 hover:text-gray-600">
+            {plan?.name ?? planId.slice(0, 8)}
+          </Link>
+        )}
         <span className="text-gray-300">/</span>
         <span className="text-sm text-gray-600">Stats</span>
       </div>
@@ -35,18 +44,31 @@ export default function PlanStats() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold">Plan Stats</h1>
-          {plan && (
-            <p className="text-sm text-gray-500 mt-0.5">{plan.name}</p>
+          {plan?.name && <p className="text-sm text-gray-500 mt-0.5">{plan.name}</p>}
+        </div>
+        <div className="flex items-center gap-2">
+          {plan && plan.versions.length > 1 && (
+            <select
+              value={targetVersion?.id ?? ''}
+              onChange={e => navigate(`/plans/${planId}/stats?versionId=${e.target.value}`)}
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 bg-white hover:border-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              {[...plan.versions].reverse().map(v => (
+                <option key={v.id} value={v.id}>
+                  v{v.version_number}{v.version_number === plan.versions.length ? ' (latest)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
+          {targetVersion && analysis && (
+            <a
+              href={api.analysis.exportCsvUrl(targetVersion.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50"
+            >
+              <Download className="w-3.5 h-3.5" /> CSV
+            </a>
           )}
         </div>
-        {latest && analysis && (
-          <a
-            href={api.analysis.exportCsvUrl(latest.id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50"
-          >
-            <Download className="w-3.5 h-3.5" /> CSV
-          </a>
-        )}
       </div>
 
       {!planId || isLoading ? (

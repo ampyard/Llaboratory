@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: |
+          Bump type (major, minor, patch) or explicit semver (e.g. 1.2.0)
+        required: true
+        default: minor
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Resolve version
+        id: version
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST=${LATEST_TAG#v}
+          echo "Latest tag: $LATEST_TAG"
+
+          INPUT=${{ github.event.inputs.version }}
+
+          if [[ "$INPUT" =~ ^(major|minor|patch)$ ]]; then
+            NEW=$(npx semver "$LATEST" -i "$INPUT")
+          else
+            NEW="$INPUT"
+          fi
+
+          echo "version=$NEW" >> "$GITHUB_OUTPUT"
+          echo "Releasing v$NEW"
+
+      - name: Update backend pyproject.toml
+        run: |
+          sed -i 's/^version = ".*"/version = "${{ steps.version.outputs.version }}"/' backend/pyproject.toml
+
+      - name: Update backend API version
+        run: |
+          sed -i 's/version="[^"]*"/version="${{ steps.version.outputs.version }}"/' backend/app/main.py
+
+      - name: Update frontend package.json & package-lock.json
+        run: |
+          V=${{ steps.version.outputs.version }}
+          for f in frontend/package.json frontend/package-lock.json; do
+            tmp=$(mktemp)
+            jq --arg v "$V" '.version = $v | if .packages then .packages[""].version = $v else . end' "$f" > "$tmp" && mv "$tmp" "$f"
+          done
+
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backend/pyproject.toml backend/app/main.py frontend/package.json frontend/package-lock.json
+          git commit -m "chore: bump version to v${{ steps.version.outputs.version }}"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin HEAD --tags
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          generate_release_notes: true

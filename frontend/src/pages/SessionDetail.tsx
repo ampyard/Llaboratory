@@ -16,6 +16,12 @@ export default function SessionDetail() {
     refetchInterval: (query) => query.state.data?.status === 'running' ? 2000 : false,
   })
 
+  const { data: plan } = useQuery({
+    queryKey: ['plans', session?.plan_version.plan_id],
+    queryFn: () => api.plans.get(session!.plan_version.plan_id),
+    enabled: !!session?.plan_version.plan_id,
+  })
+
   const [liveEvents, setLiveEvents] = useState<Event[]>([])
   const [streaming, setStreaming] = useState(false)
   const esRef = useRef<EventSource | null>(null)
@@ -108,16 +114,29 @@ export default function SessionDetail() {
                 streaming
               </span>
             )}
-            {session?.termination_reason && (
-              <span className="text-xs text-gray-400">{session.termination_reason}</span>
-            )}
           </div>
           {session?.plan_version && (
-            <p className="text-sm text-gray-500">
-              Model: <span className="font-mono">{session.plan_version.model_config_snapshot.model_snapshot}</span>
-              {' · '}
-              {session.plan_version.tool_versions.length} tool(s)
-            </p>
+            <div className="space-y-0.5">
+              <p className="text-sm text-gray-500">
+                Plan:{' '}
+                <Link
+                  to={`/plans/${session.plan_version.plan_id}/stats?versionId=${session.plan_version.id}`}
+                  className="text-indigo-500 hover:text-indigo-700 hover:underline"
+                >
+                  {plan?.name ?? '…'} <span className="text-indigo-400">(v{session.plan_version.version_number})</span>
+                </Link>
+              </p>
+              <p className="text-sm text-gray-500">
+                Model: <span className="font-mono">{session.plan_version.model_config_snapshot.model_snapshot}</span>
+                {' · '}
+                {session.plan_version.tool_versions.length} tool(s)
+              </p>
+              {session.termination_reason && (
+                <p className="text-sm text-gray-500">
+                  Termination Reason: <span className="text-gray-400">{session.termination_reason}</span>
+                </p>
+              )}
+            </div>
           )}
         </div>
 

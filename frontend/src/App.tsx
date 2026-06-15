@@ -7,6 +7,7 @@ import ModelConfigs from './pages/ModelConfigs'
 import Plans from './pages/Plans'
 import PlanBuilder from './pages/PlanBuilder'
 import PlanStats from './pages/PlanStats'
+import PlanVersions from './pages/PlanVersions'
 import Sessions from './pages/Sessions'
 import SessionDetail from './pages/SessionDetail'
 
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="plans/new" element={<PlanBuilder />} />
           <Route path="plans/:planId" element={<PlanBuilder />} />
           <Route path="plans/:planId/stats" element={<PlanStats />} />
+          <Route path="plans/:planId/versions" element={<PlanVersions />} />
           <Route path="sessions" element={<Sessions />} />
           <Route path="sessions/:sessionId" element={<SessionDetail />} />
         </Route>

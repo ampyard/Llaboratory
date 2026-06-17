@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture — Llaboratory docs</title>
+  <meta name="description" content="Architecture overview: frontend, backend, provider adapter layer, and data model." />
+  <link rel="icon" type="image/png" href="../../logo-small.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <a href="/" class="logo">
+        <img src="../../logo-small.png" alt="Llaboratory" />
+        <span>Llaboratory</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="../index.html">Home</a></li>
+        <li><a href="quickstart.html" class="active">Docs</a></li>
+        <li><a href="https://github.com/ampyard/Llaboratory">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="doc-layout">
+    <aside class="doc-sidebar">
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="workflow.html">Workflow</a></li>
+        <li><a href="architecture.html" class="active">Architecture</a></li>
+      </ul>
+    </aside>
+    <main class="doc-content">
+      <h1>Architecture</h1>
+
+      <p>Llaboratory is a two-service application: a <strong>Python backend</strong> (FastAPI + SQLite) and a <strong>TypeScript/React frontend</strong> (Vite + Tailwind CSS). The two communicate over a REST API with Server-Sent Events for live streaming.</p>
+
+      <h2>System overview</h2>
+      <div class="code-block" style="background: #1f2937; color: #d1d5db;">
+        <span style="color: #818cf8;">┌──────────────┐     ┌──────────────────────┐     ┌─────────────────┐</span><br />
+        <span style="color: #818cf8;">│</span>  React UI    <span style="color: #818cf8;">│</span>────<span style="color: #818cf8;">&gt;</span>  FastAPI Backend     <span style="color: #818cf8;">│</span>────<span style="color: #818cf8;">&gt;</span>  LLM Provider   <span style="color: #818cf8;">│</span><br />
+        <span style="color: #818cf8;">│</span>  (Vite + TS)  <span style="color: #818cf8;">│</span>     │  (Python + SQLite)  <span style="color: #818cf8;">│</span>     │  (OpenAI API)  <span style="color: #818cf8;">│</span><br />
+        <span style="color: #818cf8;">│</span>  :5173       <span style="color: #818cf8;">│</span>     │  :8000              <span style="color: #818cf8;">│</span>     │                 <span style="color: #818cf8;">│</span><br />
+        <span style="color: #818cf8;">└──────────────┘     └──────────────────────┘     └─────────────────┘</span><br />
+                              <span style="color: #6b7280;">│</span><br />
+                              <span style="color: #6b7280;">│</span><br />
+                         <span style="color: #34d399;">┌──▼──────────┐</span><br />
+                         <span style="color: #34d399;">│</span>  SQLite DB   <span style="color: #34d399;">│</span><br />
+                         <span style="color: #34d399;">│</span>  (WAL mode)  <span style="color: #34d399;">│</span><br />
+                         <span style="color: #34d399;">└─────────────┘</span>
+      </div>
+
+      <h2>Backend</h2>
+      <p>The backend is a Python FastAPI application with the following layers:</p>
+      <ul>
+        <li><strong>API layer</strong> — REST endpoints for CRUD operations on tools, model configs, plans, sessions, and events.</li>
+        <li><strong>Service layer</strong> — Business logic: tool building, plan composition, session management.</li>
+        <li><strong>Agent loop</strong> — The core session runner that orchestrates model requests, tool execution, and event logging.</li>
+        <li><strong>Provider adapter</strong> — Normalizes all provider interactions to a common internal representation. v1 ships an OpenAI-compatible adapter.</li>
+        <li><strong>Storage</strong> — SQLite with WAL mode for concurrent access. Migrations are versioned.</li>
+      </ul>
+
+      <h3>Provider adapter layer</h3>
+      <p>All providers are normalized to one internal representation so the agent loop, logging, and analysis are provider-agnostic. The adapter handles:</p>
+      <ul>
+        <li>Mapping normalized messages (<code>system</code>, <code>user</code>, <code>assistant</code>, <code>tool</code>) to provider formats.</li>
+        <li>Streaming response parsing — assembling partial text and incremental tool-call arguments from deltas.</li>
+        <li>Normalizing finish reasons, token usage, and error taxonomy (transient vs. permanent).</li>
+        <li>Parameter filtering — dropping unsupported params with a logged warning instead of failing.</li>
+      </ul>
+
+      <h3>Data model</h3>
+      <p>Key entities (all persisted to SQLite):</p>
+      <ul>
+        <li><strong>Tool / ToolVersion</strong> — Logical tool with immutable versioned snapshots. Each version freezes the model-facing name, description, parameter schema, and response configuration.</li>
+        <li><strong>ModelConfig</strong> — Authoring template for provider connection details. Copied <em>by value</em> into plan versions.</li>
+        <li><strong>Plan / PlanVersion</strong> — Composable experiment definition. Pins tool versions, freezes model config, prompts, and run settings.</li>
+        <li><strong>Session</strong> — Single execution of a PlanVersion. Records status, timing, totals, and termination reason.</li>
+        <li><strong>Event</strong> — Structured log entry. Types include <code>model_request</code>, <code>model_response</code>, <code>tool_call</code>, <code>tool_result</code>, <code>tool_error</code>, <code>manual_prompt</code>, <code>manual_response</code>, <code>hallucinated_tool_call</code>, and more.</li>
+        <li><strong>ManualResponseRecord</strong> — Captured human responses keyed by <code>(tool_version, args_hash, occurrence_index)</code> for deterministic replay.</li>
+      </ul>
+
+      <h2>Frontend</h2>
+      <p>The frontend is a single-page React application:</p>
+      <ul>
+        <li><strong>Stack:</strong> React 18, TypeScript, React Router v6, TanStack React Query, Tailwind CSS.</li>
+        <li><strong>Pages:</strong> Tool Library, Tool Builder, Model Configs, Plans, Plan Builder, Sessions, Session Detail, Plan Stats.</li>
+        <li><strong>Live streaming:</strong> Sessions stream events via Server-Sent Events. The UI renders model text and tool-call arguments incrementally as they arrive.</li>
+        <li><strong>API communication:</strong> All data fetching uses TanStack React Query for caching, deduplication, and optimistic updates.</li>
+      </ul>
+
+      <h2>Security</h2>
+      <p>Dynamic tool code runs <strong>in-process without sandboxing</strong>. This is intentional for locally-authored tools in a single-user research harness. Dynamic tools imported from shared bundles are gated behind explicit user review and approval before they can execute.</p>
+      <p>API keys are supplied via environment variables and are never stored in the database or export bundles.</p>
+
+      <h2>Concurrency</h2>
+      <p>The batch runner executes at most <strong>5 sessions concurrently</strong>. SQLite uses WAL mode so concurrent session writers don't serialize badly. Sessions beyond the cap wait in <code>pending</code> status.</p>
+    </main>
+  </div>
+
+  <footer>
+    <p>
+      Llaboratory &middot; Built for researchers &middot;
+      <a href="https://github.com/ampyard/Llaboratory">GitHub</a> &middot;
+      <a href="https://github.com/ampyard/Llaboratory/blob/main/LICENSE">MIT License</a>
+    </p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quickstart — Llaboratory docs</title>
+  <meta name="description" content="Get Llaboratory running locally with Docker Compose or manual setup." />
+  <link rel="icon" type="image/png" href="../../logo-small.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <a href="/" class="logo">
+        <img src="../../logo-small.png" alt="Llaboratory" />
+        <span>Llaboratory</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="../index.html">Home</a></li>
+        <li><a href="quickstart.html" class="active">Docs</a></li>
+        <li><a href="https://github.com/ampyard/Llaboratory">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="doc-layout">
+    <aside class="doc-sidebar">
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="quickstart.html" class="active">Quickstart</a></li>
+        <li><a href="workflow.html">Workflow</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </aside>
+    <main class="doc-content">
+      <h1>Quickstart</h1>
+
+      <h2>Docker Compose (recommended)</h2>
+      <p>The fastest way to get Llaboratory running:</p>
+      <div class="code-block">
+        git clone https://github.com/ampyard/Llaboratory.git<br />
+        cd Llaboratory<br />
+        cp .env.example .env        <span class="comment"># then edit .env with your API keys</span><br />
+        docker compose up --build
+      </div>
+      <p><strong>Important:</strong> Set at least one API key in <code>.env</code> <em>before</em> running <code>docker compose up</code>. The backend reads keys from the environment at startup — sessions will fail fast if a referenced variable is unset.</p>
+      <p>Open <a href="http://localhost:5173">http://localhost:5173</a> for the UI. The frontend proxies API calls to the backend container on port <code>8000</code>.</p>
+
+      <h2>Manual setup</h2>
+
+      <h3>Backend</h3>
+      <div class="code-block">
+        <span class="comment"># Requires Python 3.11+ and uv</span><br />
+        cd backend<br />
+        uv venv<br />
+        uv pip install -e ".[dev]"<br />
+        cp ../.env.example ../.env   <span class="comment"># fill in your API keys</span><br />
+        uv run uvicorn app.main:app --reload
+      </div>
+
+      <h3>Frontend</h3>
+      <div class="code-block">
+        <span class="comment"># Requires Node.js 18+</span><br />
+        cd frontend<br />
+        npm install<br />
+        npm run dev
+      </div>
+      <p>Open <a href="http://localhost:5173">http://localhost:5173</a> — the frontend proxies <code>/api</code> to <code>:8000</code>.</p>
+
+      <h2>Configuration</h2>
+      <p>Copy <code>.env.example</code> to <code>.env</code> in the project root and set at least one API key:</p>
+      <div class="code-block">
+        OPENAI_API_KEY=sk-...<br />
+        OPENROUTER_API_KEY=sk-or-...<br />
+        <span class="comment"># or any OpenAI-compatible provider</span>
+      </div>
+      <p>API keys are read from environment variables at session start. They are never stored in the database or export bundles.</p>
+
+      <h2>Running tests</h2>
+      <h3>Backend</h3>
+      <div class="code-block">
+        cd backend && uv run pytest -v --tb=short
+      </div>
+      <h3>Frontend</h3>
+      <div class="code-block">
+        cd frontend && npm test
+      </div>
+    </main>
+  </div>
+
+  <footer>
+    <p>
+      Llaboratory &middot; Built for researchers &middot;
+      <a href="https://github.com/ampyard/Llaboratory">GitHub</a> &middot;
+      <a href="https://github.com/ampyard/Llaboratory/blob/main/LICENSE">MIT License</a>
+    </p>
+  </footer>
+</body>
+</html>

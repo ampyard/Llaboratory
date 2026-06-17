@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow — Llaboratory docs</title>
+  <meta name="description" content="End-to-end workflow: tool library, model configs, plans, sessions, and analysis." />
+  <link rel="icon" type="image/png" href="../../logo-small.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <a href="/" class="logo">
+        <img src="../../logo-small.png" alt="Llaboratory" />
+        <span>Llaboratory</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="../index.html">Home</a></li>
+        <li><a href="quickstart.html" class="active">Docs</a></li>
+        <li><a href="https://github.com/ampyard/Llaboratory">GitHub</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="doc-layout">
+    <aside class="doc-sidebar">
+      <h4>Documentation</h4>
+      <ul>
+        <li><a href="quickstart.html">Quickstart</a></li>
+        <li><a href="workflow.html" class="active">Workflow</a></li>
+        <li><a href="architecture.html">Architecture</a></li>
+      </ul>
+    </aside>
+    <main class="doc-content">
+      <h1>Workflow</h1>
+      <p>Llaboratory follows a five-step workflow from experiment design to analysis.</p>
+
+      <h2>1. Tool Library</h2>
+      <p>The <strong>Tool Library</strong> is where you create and manage fake tools. Each tool consists of:</p>
+      <ul>
+        <li>A <strong>model-facing name and description</strong> — these are primary experimental variables you can tweak across plan versions.</li>
+        <li>A <strong>parameter schema</strong> defined as JSON Schema. Use the built-in field builder or edit raw JSON.</li>
+        <li>A <strong>response mode</strong> with three choices:</li>
+      </ul>
+
+      <h3>Response modes</h3>
+      <ul>
+        <li><strong>Static</strong> — Returns a fixed payload regardless of arguments. Useful for deterministic baselines.</li>
+        <li><strong>Dynamic</strong> — Runs a user-written Python function: <code>def respond(args, context) -&gt; response</code>. The <code>context</code> object provides session-scoped mutable state for stateful tools (e.g., a fake database that remembers writes). <em>Dynamic code runs in-process without sandboxing — only run code you trust.</em></li>
+        <li><strong>Manual</strong> — Pauses the session and prompts the human for a response. Responses are automatically recorded and replayed in subsequent runs (see Record &amp; Replay below).</li>
+      </ul>
+
+      <p>Every save creates an <strong>immutable ToolVersion</strong>. Edits always produce a new version; prior versions remain referenceable forever. Plans pin specific versions, so updating a tool never breaks an existing experiment.</p>
+
+      <h3>Built-in tools</h3>
+      <p>Llaboratory ships with 10 built-in tools that demonstrate the range of what's possible. Built-in tools are read-only — they cannot be edited or deleted — but you can <strong>clone</strong> them to create your own editable copies. The built-in set includes:</p>
+      <ul>
+        <li><strong>read_mood</strong> — Reads the ethereal mood aura of any question or situation.</li>
+        <li><strong>pet_butterfly</strong> — Gently attempts to pet a butterfly. Results may vary.</li>
+        <li><strong>vibe_check</strong> — Determines whether a statement passes the cosmic vibe check.</li>
+        <li><strong>summon_cat</strong> — Summons a cat using ancient incantations and an offering.</li>
+        <li><strong>existential_crisis_button</strong> — A large red button labeled "DO NOT PRESS."</li>
+        <li><strong>snake_oil</strong> — Sells questionable remedies for whatever ails you.</li>
+        <li><strong>submit_request_to_government</strong> — The bureaucratic process for submitting requests.</li>
+        <li><strong>gossip_mill</strong> — Returns the juiciest fake gossip about any subject.</li>
+        <li><strong>slap_bad_human</strong> — Administers a dramatic, harmless slap to a misbehaving human.</li>
+      </ul>
+
+      <h2>2. Model Configs</h2>
+      <p>Model Configs store the connection details for an LLM provider. Configure:</p>
+      <ul>
+        <li><strong>Provider kind</strong> — OpenAI-compatible (v1). Works with OpenAI, OpenRouter, LM Studio, and any endpoint exposing the chat completions API.</li>
+        <li><strong>Base URL</strong> — The API endpoint.</li>
+        <li><strong>Model snapshot</strong> — The exact model identifier (e.g. <code>gpt-4o-2025-05-10</code>). No aliases — pin the exact version.</li>
+        <li><strong>Parameters</strong> — temperature, top_p, seed, max_tokens, tool_choice.</li>
+        <li><strong>API key env var</strong> — The <em>name</em> of the environment variable (e.g. <code>OPENAI_API_KEY</code>). The key value itself is never stored.</li>
+        <li><strong>Pricing</strong> — Input/output cost per 1k tokens for cost accounting.</li>
+      </ul>
+
+      <h2>3. Plans</h2>
+      <p>A <strong>Plan</strong> assembles everything needed for an experiment:</p>
+      <ul>
+        <li>An ordered set of tools (with specific versions).</li>
+        <li>A model config (copied <em>by value</em> into the plan version).</li>
+        <li>System prompt and user/starting prompt.</li>
+        <li>Run settings: repetitions, tool-order strategy (<code>fixed</code> or <code>randomized_per_session</code>), and agent-loop limits.</li>
+      </ul>
+      <p>Saving a plan creates an <strong>immutable PlanVersion</strong>. All subsequent sessions are bound to this version. You can create as many plan versions as needed to track prompt tweaks, tool changes, or model parameter variations — each with its own audit trail.</p>
+
+      <h2>4. Sessions</h2>
+      <p>A <strong>Session</strong> executes one run of a PlanVersion. Launch sessions from the plan detail view. Key behaviors:</p>
+      <ul>
+        <li><strong>Live streaming</strong> — Watch model responses and tool calls arrive incrementally as the provider streams them.</li>
+        <li><strong>Agent loop</strong> — The model requests, (optionally) calls tools, results are fed back, and the loop continues until a termination condition fires (max turns, max tool calls, loop guard, timeout, user abort).</li>
+        <li><strong>Manual tools</strong> — Sessions pause at <code>awaiting_manual_input</code> status. Provide a response in the UI; the session resumes automatically.</li>
+        <li><strong>Record &amp; Replay</strong> — Manual responses are recorded keyed by <code>(tool_version, args_hash, occurrence_index)</code>. Subsequent sessions automatically replay matching calls — no human needed.</li>
+        <li><strong>Batch runs</strong> — Set <code>repetitions &gt; 1</code> and launch N sessions at once (up to 5 concurrent).</li>
+      </ul>
+
+      <h3>Termination conditions</h3>
+      <ul>
+        <li><code>completed_no_tool_call</code> — Model returned a final message without calling a tool.</li>
+        <li><code>max_turns</code> — Hit the turn limit (default 20).</li>
+        <li><code>max_tool_calls</code> — Hit the tool call limit (default 50).</li>
+        <li><code>loop_guard</code> — Same tool + same args 5× in a row.</li>
+        <li><code>timeout</code> — Wall clock exceeded (default 5 min; paused during manual input).</li>
+        <li><code>aborted</code> — User killed the session.</li>
+        <li><code>errored</code> — Provider error after retries.</li>
+      </ul>
+
+      <h2>5. Analysis</h2>
+      <p>Every interaction is logged as structured <strong>Events</strong> in SQLite (WAL mode). The analysis layer computes:</p>
+      <ul>
+        <li><strong>Per-session metrics</strong> — tools called, call order, turn count, token usage, computed cost, duration, termination reason.</li>
+        <li><strong>Within-plan aggregation</strong> — tool-selection rates, first-tool distributions, call-order patterns, variance across repetitions.</li>
+        <li><strong>Cross-model comparison</strong> — same plan run across different models with comparable metrics.</li>
+        <li><strong>Export</strong> — CSV/JSON for external plotting and write-ups.</li>
+      </ul>
+      <p>Failed and aborted sessions are counted explicitly in every rate — a high failure rate can never masquerade as a high "no tool call" rate.</p>
+    </main>
+  </div>
+
+  <footer>
+    <p>
+      Llaboratory &middot; Built for researchers &middot;
+      <a href="https://github.com/ampyard/Llaboratory">GitHub</a> &middot;
+      <a href="https://github.com/ampyard/Llaboratory/blob/main/LICENSE">MIT License</a>
+    </p>
+  </footer>
+</body>
+</html>

@@ -53,7 +53,7 @@ nav .nav-links a:hover, nav .nav-links a.active { color: var(--indigo-600); }
   text-align: center; padding: 96px 24px 64px;
   background: linear-gradient(135deg, #eef2ff 0%, #f9fafb 100%);
 }
-.hero img { display: block; margin: 0 auto 24px; height: 80px; }
+.hero img { display: block; margin: 0 auto 24px; height: 30vh; }
 .hero h1 { font-size: 3rem; font-weight: 800; letter-spacing: -.03em; line-height: 1.15; }
 .hero h1 span { color: var(--indigo-600); }
 .hero p { font-size: 1.2rem; color: var(--gray-600); max-width: 640px; margin: 16px auto 32px; }

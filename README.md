@@ -1,5 +1,5 @@
 <div align="center">
-<img src="logo.png" style="align: center; width:30%; height: auto"></img>
+<img src="docs/logo.png" style="align: center; width:30%; height: auto"></img>
 
 <p>
     
@@ -16,7 +16,7 @@ A self-hostable, open-source laboratory for studying how LLMs behave when offere
 
 ## Screenshot
 
-![Screenshot of fake tools page](./screenshot.png)
+![Screenshot of fake tools page](docs/screenshot.png)
 
 ## Quick Start
 

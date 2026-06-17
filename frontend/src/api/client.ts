@@ -12,7 +12,18 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`${res.status}: ${text}`)
+    try {
+      const json = JSON.parse(text)
+      // Extract 'detail' property if it exists (FastAPI error format)
+      const errorMessage = json.detail || text
+      throw new Error(errorMessage)
+    } catch (e) {
+      // If JSON parsing fails, throw the raw text
+      if (e instanceof SyntaxError) {
+        throw new Error(`${res.status}: ${text}`, { cause: e })
+      }
+      throw e
+    }
   }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
@@ -41,6 +52,7 @@ export const api = {
     update: (id: string, body: unknown) =>
       req<ModelConfig>(`/model-configs/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
     delete: (id: string) => req<void>(`/model-configs/${id}`, { method: 'DELETE' }),
+    test: (id: string) => req<{ success: boolean; message: string; response: string; token_usage: Record<string, number> }>(`/model-configs/${id}/test-model`, { method: 'POST' }),
   },
 
   plans: {

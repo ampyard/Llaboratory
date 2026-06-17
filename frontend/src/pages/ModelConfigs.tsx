@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, Play } from 'lucide-react'
 import { api } from '../api/client'
 import type { ModelConfig } from '../types'
+import { ToastContainer, useToast } from '../components/Toast'
 
 interface FormState {
   name: string; base_url: string; model_snapshot: string
@@ -22,6 +23,7 @@ export default function ModelConfigs() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<ModelConfig | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY)
+  const { toasts, showToast, closeToast } = useToast()
 
   const save = useMutation({
     mutationFn: async () => {
@@ -49,6 +51,23 @@ export default function ModelConfigs() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['model-configs'] }),
   })
 
+  const [testingId, setTestingId] = useState<string | null>(null)
+
+  const test = useMutation({
+    mutationFn: async (id: string) => {
+      setTestingId(id)
+      return api.modelConfigs.test(id)
+    },
+    onSuccess: (data) => {
+      setTestingId(null)
+      showToast('success', data.message)
+    },
+    onError: (error: Error) => {
+      setTestingId(null)
+      showToast('error', error.message)
+    },
+  })
+
   function openEdit(mc: ModelConfig) {
     const p = mc.params as Record<string, unknown>
     setForm({
@@ -63,8 +82,10 @@ export default function ModelConfigs() {
   }
 
   return (
-    <div className="p-6 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
+    <>
+      <ToastContainer toasts={toasts} onClose={closeToast} />
+      <div className="p-6 max-w-4xl">
+        <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold">Model Configs</h1>
           <p className="text-sm text-gray-500 mt-0.5">Provider endpoints and parameters</p>
@@ -95,10 +116,18 @@ export default function ModelConfigs() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => openEdit(mc)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded">
+              <button
+                onClick={() => test.mutate(mc.id)}
+                disabled={testingId === mc.id}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+                title="Test configuration"
+              >
+                <Play className="w-3.5 h-3.5" /> {testingId === mc.id ? 'Testing…' : 'Test'}
+              </button>
+              <button onClick={() => openEdit(mc)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded" title="Edit">
                 <Pencil className="w-4 h-4" />
               </button>
-              <button onClick={() => { if (confirm('Delete?')) del.mutate(mc.id) }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
+              <button onClick={() => { if (confirm('Delete?')) del.mutate(mc.id) }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Delete">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
@@ -148,6 +177,7 @@ export default function ModelConfigs() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   )
 }

@@ -28,6 +28,12 @@ async def stream_completion(
     }
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
+
+    # OpenRouter app attribution (https://openrouter.ai/docs/app-attribution)
+    headers["HTTP-Referer"] = "https://llaboratory.ampyard.com/"
+    headers["X-OpenRouter-Title"] = "Llaboratory"
+    headers["X-OpenRouter-Categories"] = "roleplay"
+    
     payload: dict = {
         "model": model,
         "messages": messages,

@@ -10,6 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-MLRPVYT0Q0"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)};gtag('js',new Date());gtag('config','G-MLRPVYT0Q0');</script>
 </head>
 <body>
   <nav>
@@ -71,7 +73,7 @@
         <li>Mapping normalized messages (<code>system</code>, <code>user</code>, <code>assistant</code>, <code>tool</code>) to provider formats.</li>
         <li>Streaming response parsing — assembling partial text and incremental tool-call arguments from deltas.</li>
         <li>Normalizing finish reasons, token usage, and error taxonomy (transient vs. permanent).</li>
-        <li>Parameter filtering — dropping unsupported params with a logged warning instead of failing.</li>
+
       </ul>
 
       <h3>Data model</h3>
@@ -95,7 +97,7 @@
       </ul>
 
       <h2>Security</h2>
-      <p>Dynamic tool code runs <strong>in-process without sandboxing</strong>. This is intentional for locally-authored tools in a single-user research harness. Dynamic tools imported from shared bundles are gated behind explicit user review and approval before they can execute.</p>
+      <p>Dynamic tool code runs <strong>in-process without sandboxing</strong>. This is intentional for locally-authored tools in a single-user research harness.</p>
       <p>API keys are supplied via environment variables and are never stored in the database or export bundles.</p>
 
       <h2>Concurrency</h2>

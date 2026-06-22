@@ -10,6 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-MLRPVYT0Q0"></script>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)};gtag('js',new Date());gtag('config','G-MLRPVYT0Q0');</script>
 </head>
 <body>
   <nav>
@@ -44,14 +46,13 @@
       <ul>
         <li>A <strong>model-facing name and description</strong> — these are primary experimental variables you can tweak across plan versions.</li>
         <li>A <strong>parameter schema</strong> defined as JSON Schema. Use the built-in field builder or edit raw JSON.</li>
-        <li>A <strong>response mode</strong> with three choices:</li>
+        <li>A <strong>response mode</strong> with two choices:</li>
       </ul>
 
       <h3>Response modes</h3>
       <ul>
         <li><strong>Static</strong> — Returns a fixed payload regardless of arguments. Useful for deterministic baselines.</li>
         <li><strong>Dynamic</strong> — Runs a user-written Python function: <code>def respond(args, context) -&gt; response</code>. The <code>context</code> object provides session-scoped mutable state for stateful tools (e.g., a fake database that remembers writes). <em>Dynamic code runs in-process without sandboxing — only run code you trust.</em></li>
-        <li><strong>Manual</strong> — Pauses the session and prompts the human for a response. Responses are automatically recorded and replayed in subsequent runs (see Record &amp; Replay below).</li>
       </ul>
 
       <p>Every save creates an <strong>immutable ToolVersion</strong>. Edits always produce a new version; prior versions remain referenceable forever. Plans pin specific versions, so updating a tool never breaks an existing experiment.</p>
@@ -97,8 +98,7 @@
         <li><strong>Live streaming</strong> — Watch model responses and tool calls arrive incrementally as the provider streams them.</li>
         <li><strong>Agent loop</strong> — The model requests, (optionally) calls tools, results are fed back, and the loop continues until a termination condition fires (max turns, max tool calls, loop guard, timeout, user abort).</li>
         <li><strong>Manual tools</strong> — Sessions pause at <code>awaiting_manual_input</code> status. Provide a response in the UI; the session resumes automatically.</li>
-        <li><strong>Record &amp; Replay</strong> — Manual responses are recorded keyed by <code>(tool_version, args_hash, occurrence_index)</code>. Subsequent sessions automatically replay matching calls — no human needed.</li>
-        <li><strong>Batch runs</strong> — Set <code>repetitions &gt; 1</code> and launch N sessions at once (up to 5 concurrent).</li>
+
       </ul>
 
       <h3>Termination conditions</h3>

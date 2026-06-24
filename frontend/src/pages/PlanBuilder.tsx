@@ -69,6 +69,7 @@ export default function PlanBuilder() {
     setSaving(true)
     try {
       if (isEdit) {
+        await api.plans.updateMeta(planId!, { name: planName, description: planDesc })
         await api.plans.addVersion(planId!, buildVersionPayload())
       } else {
         const created = await api.plans.create({
@@ -89,7 +90,7 @@ export default function PlanBuilder() {
     try {
       let savedPlan: Awaited<ReturnType<typeof api.plans.create>> | undefined
       if (isEdit) {
-        savedPlan = await api.plans.get(planId!)
+        await api.plans.updateMeta(planId!, { name: planName, description: planDesc })
         await api.plans.addVersion(planId!, buildVersionPayload())
         savedPlan = await api.plans.get(planId!)
       } else {

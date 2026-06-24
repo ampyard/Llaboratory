@@ -168,3 +168,29 @@ def test_delete_plan(client):
     r = client.delete(f"/api/plans/{plan['id']}")
     assert r.status_code == 204
     assert client.get(f"/api/plans/{plan['id']}").status_code == 404
+
+
+def test_update_plan_metadata(client):
+    tool = _make_tool(client)
+    mc = _make_model_config(client)
+    plan = _make_plan(client, tool["versions"][0]["id"], mc["id"]).json()
+    plan_id = plan["id"]
+
+    # Update metadata
+    r = client.patch(f"/api/plans/{plan_id}", json={
+        "name": "Updated Plan Name",
+        "description": "Updated Description"
+    })
+    assert r.status_code == 200
+    data = r.json()
+    assert data["name"] == "Updated Plan Name"
+    assert data["description"] == "Updated Description"
+
+    # Get plan and check
+    refreshed = client.get(f"/api/plans/{plan_id}").json()
+    assert refreshed["name"] == "Updated Plan Name"
+    assert refreshed["description"] == "Updated Description"
+
+    # Try non-existent plan
+    r = client.patch("/api/plans/nonexistent-id", json={"name": "New Name"})
+    assert r.status_code == 404

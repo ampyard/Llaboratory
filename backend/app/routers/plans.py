@@ -4,7 +4,7 @@ import json
 
 from app.database import get_db
 from app.models import Plan, PlanVersion, ModelConfig, ToolVersion
-from app.schemas import PlanCreate, PlanOut, PlanVersionCreate, PlanVersionOut
+from app.schemas import PlanCreate, PlanOut, PlanUpdate, PlanVersionCreate, PlanVersionOut
 
 router = APIRouter(prefix="/plans", tags=["plans"])
 
@@ -70,6 +70,20 @@ def get_plan(plan_id: str, db: Session = Depends(get_db)):
     plan = db.get(Plan, plan_id)
     if not plan:
         raise HTTPException(404, "Plan not found")
+    return plan
+
+
+@router.patch("/{plan_id}", response_model=PlanOut)
+def update_plan_meta(plan_id: str, body: PlanUpdate, db: Session = Depends(get_db)):
+    plan = db.get(Plan, plan_id)
+    if not plan:
+        raise HTTPException(404, "Plan not found")
+    if body.name is not None:
+        plan.name = body.name
+    if body.description is not None:
+        plan.description = body.description
+    db.commit()
+    db.refresh(plan)
     return plan
 
 

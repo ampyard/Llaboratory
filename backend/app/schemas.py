@@ -138,6 +138,10 @@ class PlanCreate(BaseModel):
     description: str = ""
     version: PlanVersionCreate
 
+class PlanUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+
 class PlanVersionOut(BaseModel):
     id: str
     plan_id: str

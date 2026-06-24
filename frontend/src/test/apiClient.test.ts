@@ -72,6 +72,17 @@ describe('plans API', () => {
     expect(url).toBe('/api/plans/plan-1/clone')
     expect(init.method).toBe('POST')
   })
+
+  test('updateMeta calls PATCH /api/plans/:id with body', async () => {
+    mockFetch.mockReturnValue(okResponse({ id: 'plan-1' }))
+    const api = await getApi()
+    const body = { name: 'new name', description: 'new desc' }
+    await api.plans.updateMeta('plan-1', body)
+    const [url, init] = mockFetch.mock.calls[0]
+    expect(url).toBe('/api/plans/plan-1')
+    expect(init.method).toBe('PATCH')
+    expect(JSON.parse(init.body)).toEqual(body)
+  })
 })
 
 describe('sessions API', () => {

@@ -47,6 +47,8 @@ export const api = {
     list: () => req<Plan[]>('/plans'),
     get: (id: string) => req<Plan>(`/plans/${id}`),
     create: (body: unknown) => req<Plan>('/plans', { method: 'POST', body: JSON.stringify(body) }),
+    updateMeta: (id: string, body: unknown) =>
+      req<Plan>(`/plans/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
     addVersion: (id: string, body: unknown) =>
       req<PlanVersion>(`/plans/${id}/versions`, { method: 'POST', body: JSON.stringify(body) }),
     clone: (id: string) => req<Plan>(`/plans/${id}/clone`, { method: 'POST' }),

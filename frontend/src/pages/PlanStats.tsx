@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, BarChart2, Download } from 'lucide-react'
+import { ArrowLeft, BarChart2, Download, FileText } from 'lucide-react'
 import { api } from '../api/client'
 
 export default function PlanStats() {
@@ -59,6 +59,14 @@ export default function PlanStats() {
                 </option>
               ))}
             </select>
+          )}
+          {targetVersion && analysis && (
+            <Link
+              to={`/plans/${planId}/report${versionIdParam ? `?versionId=${versionIdParam}` : ''}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50"
+            >
+              <FileText className="w-3.5 h-3.5" /> Report
+            </Link>
           )}
           {targetVersion && analysis && (
             <a

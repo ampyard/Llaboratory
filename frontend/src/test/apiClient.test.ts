@@ -120,16 +120,16 @@ describe('sessions API', () => {
 })
 
 describe('error handling', () => {
-  test('throws on 4xx response with status code', async () => {
+  test('throws on 4xx response with detail property', async () => {
     mockFetch.mockReturnValue(okResponse({ detail: 'Not found' }, 404))
     const api = await getApi()
-    await expect(api.tools.get('missing')).rejects.toThrow('404')
+    await expect(api.tools.get('missing')).rejects.toThrow('Not found')
   })
 
   test('throws on 5xx response', async () => {
     mockFetch.mockReturnValue(okResponse('Internal Server Error', 500))
     const api = await getApi()
-    await expect(api.tools.list()).rejects.toThrow('500')
+    await expect(api.tools.list()).rejects.toThrow('Internal Server Error')
   })
 })
 

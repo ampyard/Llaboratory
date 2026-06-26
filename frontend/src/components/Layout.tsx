@@ -36,7 +36,7 @@ export default function Layout() {
           ))}
         </nav>
         <div className="px-4 py-3 border-t border-gray-200">
-          <p className="text-xs text-gray-400">MVP v0.2.0</p>
+          <p className="text-xs text-gray-400">MVP v0.3.0</p>
         </div>
       </aside>
 

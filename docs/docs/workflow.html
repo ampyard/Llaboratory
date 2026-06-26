@@ -39,7 +39,7 @@
     </aside>
     <main class="doc-content">
       <h1>Workflow</h1>
-      <p>Llaboratory follows a five-step workflow from experiment design to analysis.</p>
+      <p>Llaboratory follows a five-step workflow from experiment design to analysis and reporting.</p>
 
       <h2>1. Tool Library</h2>
       <p>The <strong>Tool Library</strong> is where you create and manage fake tools. Each tool consists of:</p>
@@ -95,7 +95,7 @@
       <h2>4. Sessions</h2>
       <p>A <strong>Session</strong> executes one run of a PlanVersion. Launch sessions from the plan detail view. Key behaviors:</p>
       <ul>
-        <li><strong>Live streaming</strong> — Watch model responses and tool calls arrive incrementally as the provider streams them.</li>
+        <li><strong>Live streaming</strong> — Watch model reasoning, text, and tool calls arrive incrementally as the provider streams them.</li>
         <li><strong>Agent loop</strong> — The model requests, (optionally) calls tools, results are fed back, and the loop continues until a termination condition fires (max turns, max tool calls, loop guard, timeout, user abort).</li>
         <li><strong>Manual tools</strong> — Sessions pause at <code>awaiting_manual_input</code> status. Provide a response in the UI; the session resumes automatically.</li>
 
@@ -118,7 +118,7 @@
         <li><strong>Per-session metrics</strong> — tools called, call order, turn count, token usage, computed cost, duration, termination reason.</li>
         <li><strong>Within-plan aggregation</strong> — tool-selection rates, first-tool distributions, call-order patterns, variance across repetitions.</li>
         <li><strong>Cross-model comparison</strong> — same plan run across different models with comparable metrics.</li>
-        <li><strong>Export</strong> — CSV/JSON for external plotting and write-ups.</li>
+        <li><strong>Export</strong> — CSV/JSON for external plotting and write-ups, plus downloadable markdown findings reports for each plan version.</li>
       </ul>
       <p>Failed and aborted sessions are counted explicitly in every rate — a high failure rate can never masquerade as a high "no tool call" rate.</p>
     </main>

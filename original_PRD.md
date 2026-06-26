@@ -334,7 +334,7 @@ Logging gives raw records; this layer turns them into findings.
 - **Within-plan aggregation (across the N sessions of a PlanVersion):** tool-selection rates, first-tool-chosen distribution, call-order patterns, distribution/variance of turns/tokens/cost, rate of "no tool call," recovery rates after errors.
 - **Failed/aborted sessions are counted.** `errored` and `aborted` sessions are included in the denominator of every rate and reported as their **own explicit categories**, so a high failure rate can never masquerade as (for example) a high "no tool call" rate.
 - **Cross-model comparison:** the same plan (or equivalent plans differing only in ModelConfig) compared across models on the metrics above — the core Substack chart.
-- **Export:** CSV/JSON export of per-session metrics and aggregates for external plotting/write-ups.
+- **Export:** CSV/JSON export of per-session metrics and aggregates for external plotting/write-ups, plus generated markdown findings reports for plan-version summaries.
 - **Deferred:** correctness scoring / expected-behavior definitions — schema should leave room (e.g., an optional per-plan expectations object and a per-session score field) without implementing evaluation in v1.
 
 ---
@@ -373,5 +373,5 @@ Still open:
 4. **M4 — Plans & sessions:** plan composition/versioning (incl. by-value ModelConfig freeze), run a session, session detail view.
 5. **M5 — Live UI + manual tools:** real-time stream, manual prompts, record-and-replay with occurrence index (+ opt-out).
 6. **M6 — Concurrency & accounting:** 5-way batch runner, token/cost accounting (incl. reasoning/cache token capture).
-7. **M7 — Analysis layer:** per-session metrics, within-plan + cross-model aggregation (with failed/aborted as explicit categories), CSV/JSON export.
+7. **M7 — Analysis layer:** per-session metrics, within-plan + cross-model aggregation (with failed/aborted as explicit categories), CSV/JSON export, and markdown findings reports.
 8. **M8 — Sharing + OSS polish:** import/export bundles (key-safe, approval-gated dynamic code), README, license, security disclaimer, examples.

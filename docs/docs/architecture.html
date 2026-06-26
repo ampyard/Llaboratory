@@ -60,10 +60,11 @@
       <h2>Backend</h2>
       <p>The backend is a Python FastAPI application with the following layers:</p>
       <ul>
-        <li><strong>API layer</strong> — REST endpoints for CRUD operations on tools, model configs, plans, sessions, and events.</li>
+        <li><strong>API layer</strong> — REST endpoints for CRUD operations on tools, model configs, plans, sessions, events, and analysis/reporting.</li>
         <li><strong>Service layer</strong> — Business logic: tool building, plan composition, session management.</li>
         <li><strong>Agent loop</strong> — The core session runner that orchestrates model requests, tool execution, and event logging.</li>
         <li><strong>Provider adapter</strong> — Normalizes all provider interactions to a common internal representation. v1 ships an OpenAI-compatible adapter.</li>
+        <li><strong>Analysis endpoints</strong> — Aggregate per-session and within-plan metrics, expose CSV export, and generate markdown findings reports for plan versions.</li>
         <li><strong>Storage</strong> — SQLite with WAL mode for concurrent access. Migrations are versioned.</li>
       </ul>
 
@@ -91,8 +92,8 @@
       <p>The frontend is a single-page React application:</p>
       <ul>
         <li><strong>Stack:</strong> React 18, TypeScript, React Router v6, TanStack React Query, Tailwind CSS.</li>
-        <li><strong>Pages:</strong> Tool Library, Tool Builder, Model Configs, Plans, Plan Builder, Sessions, Session Detail, Plan Stats.</li>
-        <li><strong>Live streaming:</strong> Sessions stream events via Server-Sent Events. The UI renders model text and tool-call arguments incrementally as they arrive.</li>
+        <li><strong>Pages:</strong> Tool Library, Tool Builder, Model Configs, Plans, Plan Builder, Sessions, Session Detail, Plan Stats, and Plan Report.</li>
+        <li><strong>Live streaming:</strong> Sessions stream events via Server-Sent Events. The UI renders model reasoning, text, and tool-call arguments incrementally as they arrive.</li>
         <li><strong>API communication:</strong> All data fetching uses TanStack React Query for caching, deduplication, and optimistic updates.</li>
       </ul>
 

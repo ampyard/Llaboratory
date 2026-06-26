@@ -53,8 +53,13 @@ Open http://localhost:5173 — the frontend proxies `/api` to `:8000`.
 1. **Tool Library** → create fake tools with static or dynamic responses
 2. **Model Configs** → configure a provider endpoint + model snapshot + API key env var
 3. **Plans** → compose tools + model + prompts into a versioned testing plan
-4. **Run** → launch sessions; watch the live event stream; inspect tool calls and model responses
+4. **Run** → launch sessions; watch the live event stream as reasoning and text deltas arrive; inspect tool calls and model responses
 5. **Sessions** → view history, metrics, and per-session event timelines
+6. **Analysis** → review plan-version stats, export CSV, and download a markdown findings report for write-ups or sharing
+
+## Analysis & reporting
+
+Each plan version now has a stats view for aggregate outcomes across its sessions, including completed/errored/aborted counts, tool-selection frequency, and per-session breakdowns. From there you can export session metrics as CSV or open the generated findings report to review or download a markdown summary of the run.
 
 ## Security
 

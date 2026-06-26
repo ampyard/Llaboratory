@@ -49,6 +49,14 @@ function EventPayload({ event }: { event: Event }) {
     return (
       <div className="space-y-1">
         {parts.map((part, i) => {
+          if (part.type === 'reasoning') {
+            return (
+              <div key={i} className="bg-purple-50 border border-purple-100 rounded p-2">
+                <p className="text-xs font-semibold text-purple-500 mb-1">thinking</p>
+                <p className="text-xs text-purple-700 whitespace-pre-wrap">{part.content as string}</p>
+              </div>
+            )
+          }
           if (part.type === 'text') {
             return (
               <p key={i} className="text-sm text-gray-700 whitespace-pre-wrap">
@@ -115,8 +123,51 @@ function EventPayload({ event }: { event: Event }) {
   )
 }
 
-export default function EventTimeline({ events }: { events: Event[] }) {
-  if (events.length === 0) {
+interface StreamBuffer {
+  reasoning: string
+  text: string
+}
+
+function LiveStreamCard({ buffer }: { buffer: StreamBuffer }) {
+  const hasContent = buffer.reasoning || buffer.text
+  return (
+    <div className="flex gap-3 py-3">
+      <div className="w-6 h-6 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center shrink-0 mt-0.5">
+        <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-semibold font-mono text-indigo-400">model_response</span>
+          <span className="text-xs text-indigo-300 animate-pulse">streaming…</span>
+        </div>
+        {hasContent ? (
+          <div className="space-y-1">
+            {buffer.reasoning && (
+              <div className="bg-purple-50 border border-purple-100 rounded p-2">
+                <p className="text-xs font-semibold text-purple-500 mb-1">thinking</p>
+                <p className="text-xs text-purple-700 whitespace-pre-wrap">{buffer.reasoning}</p>
+              </div>
+            )}
+            {buffer.text && (
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{buffer.text}</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">Waiting for model…</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function EventTimeline({
+  events,
+  streamBuffer,
+}: {
+  events: Event[]
+  streamBuffer?: { reasoning: string; text: string } | null
+}) {
+  if (events.length === 0 && !streamBuffer) {
     return <p className="text-sm text-gray-400 py-4 text-center">No events yet.</p>
   }
   return (
@@ -124,6 +175,7 @@ export default function EventTimeline({ events }: { events: Event[] }) {
       {events.map(ev => (
         <EventCard key={ev.id} event={ev} />
       ))}
+      {streamBuffer && <LiveStreamCard buffer={streamBuffer} />}
     </div>
   )
 }

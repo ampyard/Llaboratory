@@ -105,6 +105,8 @@ async def assemble_response(
         # Reasoning content (some providers)
         if delta.get("reasoning"):
             reasoning_buffer += delta["reasoning"]
+            if stream_callback:
+                await stream_callback("reasoning_delta", delta["reasoning"])
 
         # Text content
         if delta.get("content"):

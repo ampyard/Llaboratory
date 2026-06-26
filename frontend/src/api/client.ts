@@ -72,5 +72,8 @@ export const api = {
   analysis: {
     planVersion: (id: string) => req<Record<string, unknown>>(`/analysis/plan-version/${id}`),
     exportCsvUrl: (id: string) => `${BASE}/analysis/plan-version/${id}/export.csv`,
+    reportUrl: (id: string) => `${BASE}/analysis/plan-version/${id}/report.md`,
+    reportDownloadUrl: (id: string) => `${BASE}/analysis/plan-version/${id}/report.md?download=1`,
+    fetchReport: (id: string) => fetch(`${BASE}/analysis/plan-version/${id}/report.md`).then(r => r.text()),
   },
 }

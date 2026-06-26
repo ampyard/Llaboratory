@@ -24,6 +24,7 @@ export default function SessionDetail() {
 
   const [liveEvents, setLiveEvents] = useState<Event[]>([])
   const [streaming, setStreaming] = useState(false)
+  const [streamBuffer, setStreamBuffer] = useState<{ reasoning: string; text: string } | null>(null)
   const esRef = useRef<EventSource | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -37,7 +38,28 @@ export default function SessionDetail() {
 
     es.addEventListener('message', (e) => {
       const data = JSON.parse(e.data)
-      if (data.type === 'stream_delta') return  // skip raw deltas from timeline
+
+      if (data.type === 'stream_delta') {
+        const { kind, data: payload } = data
+        if (kind === 'reasoning_delta') {
+          setStreamBuffer(prev => ({
+            reasoning: (prev?.reasoning ?? '') + (payload as string),
+            text: prev?.text ?? '',
+          }))
+        } else if (kind === 'text_delta') {
+          setStreamBuffer(prev => ({
+            reasoning: prev?.reasoning ?? '',
+            text: (prev?.text ?? '') + (payload as string),
+          }))
+        }
+        return
+      }
+
+      // When a full model_response arrives, clear the live buffer (the real event replaces it)
+      if (data.type === 'model_response') {
+        setStreamBuffer(null)
+      }
+
       setLiveEvents(prev => [...prev, {
         id: `live-${data.sequence_no}`,
         session_id: sessionId!,
@@ -53,6 +75,7 @@ export default function SessionDetail() {
 
     es.addEventListener('done', () => {
       setStreaming(false)
+      setStreamBuffer(null)
       es.close()
       refetch()
     })
@@ -202,7 +225,7 @@ export default function SessionDetail() {
           Event Timeline
           <span className="ml-2 text-xs font-normal text-gray-400">({displayEvents.length} events)</span>
         </h2>
-        <EventTimeline events={displayEvents} />
+        <EventTimeline events={displayEvents} streamBuffer={streamBuffer} />
         <div ref={bottomRef} />
       </div>
 

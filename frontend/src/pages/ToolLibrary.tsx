@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Pencil, Trash2, Tag, Copy, Sparkles, Search, Eye } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tag, Copy, Sparkles, Search, Eye, BarChart2 } from 'lucide-react'
 import { api } from '../api/client'
 import type { Tool } from '../types'
 
@@ -125,6 +125,13 @@ function ToolCard({ tool, onDelete, onClone }: { tool: Tool; onDelete: () => voi
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
+        <Link
+          to={`/tools/${tool.id}/stats`}
+          className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+          title="View stats"
+        >
+          <BarChart2 className="w-4 h-4" />
+        </Link>
         <Link
           to={`/tools/${tool.id}`}
           className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"

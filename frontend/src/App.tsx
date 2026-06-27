@@ -9,6 +9,7 @@ import PlanBuilder from './pages/PlanBuilder'
 import PlanReport from './pages/PlanReport'
 import PlanStats from './pages/PlanStats'
 import PlanVersions from './pages/PlanVersions'
+import ToolStats from './pages/ToolStats'
 import Sessions from './pages/Sessions'
 import SessionDetail from './pages/SessionDetail'
 
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="tools" element={<ToolLibrary />} />
           <Route path="tools/new" element={<ToolBuilder />} />
           <Route path="tools/:toolId" element={<ToolDetail />} />
+          <Route path="tools/:toolId/stats" element={<ToolStats />} />
           <Route path="tools/:toolId/edit" element={<ToolBuilder />} />
           <Route path="models" element={<ModelConfigs />} />
           <Route path="plans" element={<Plans />} />

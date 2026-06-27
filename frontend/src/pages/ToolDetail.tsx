@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Sparkles, Copy, Pencil, Tag } from 'lucide-react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { ArrowLeft, Sparkles, Copy, Pencil, Tag, BarChart2 } from 'lucide-react'
 import { api } from '../api/client'
 import type { ToolVersion } from '../types'
 
@@ -57,26 +57,34 @@ export default function ToolDetail() {
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0 ml-4">
-            {tool.built_in ? (
+            <div className="flex items-center gap-2">
               <Link
-                to={`/tools/${tool.id}/clone`}
-                onClick={async (e) => {
-                  e.preventDefault()
-                  const cloned = await api.tools.clone(tool.id)
-                  navigate(`/tools/${cloned.id}/edit`)
-                }}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                to={`/tools/${tool.id}/stats`}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
               >
-                <Copy className="w-3.5 h-3.5" /> Clone
+                <BarChart2 className="w-3.5 h-3.5" /> Stats
               </Link>
-            ) : (
-              <Link
-                to={`/tools/${tool.id}/edit`}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
-              >
-                <Pencil className="w-3.5 h-3.5" /> Edit
-              </Link>
-            )}
+              {tool.built_in ? (
+                <Link
+                  to={`/tools/${tool.id}/clone`}
+                  onClick={async (e) => {
+                    e.preventDefault()
+                    const cloned = await api.tools.clone(tool.id)
+                    navigate(`/tools/${cloned.id}/edit`)
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Clone
+                </Link>
+              ) : (
+                <Link
+                  to={`/tools/${tool.id}/edit`}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                >
+                  <Pencil className="w-3.5 h-3.5" /> Edit
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </div>

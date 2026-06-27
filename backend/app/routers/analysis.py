@@ -12,9 +12,20 @@ import csv
 import io
 
 from app.database import get_db
-from app.models import PlanVersion, Session, Tool, ToolVersion
+from app.models import PlanVersion, Session, Tool
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
+
+
+def safe_stats(vals: list) -> dict:
+    if not vals:
+        return {"mean": None, "stdev": None, "min": None, "max": None}
+    return {
+        "mean": round(mean(vals), 4),
+        "stdev": round(stdev(vals), 4) if len(vals) > 1 else 0,
+        "min": min(vals),
+        "max": max(vals),
+    }
 
 
 def _session_metrics(session: Session) -> dict:
@@ -86,16 +97,6 @@ def aggregate_plan_version(plan_version_id: str, db: DBSession = Depends(get_db)
     turns_vals = [m["turns"] for m in completed]
     cost_vals = [m["cost_usd"] for m in completed]
     token_vals = [m["input_tokens"] + m["output_tokens"] for m in completed]
-
-    def safe_stats(vals: list) -> dict:
-        if not vals:
-            return {"mean": None, "stdev": None, "min": None, "max": None}
-        return {
-            "mean": round(mean(vals), 4),
-            "stdev": round(stdev(vals), 4) if len(vals) > 1 else 0,
-            "min": min(vals),
-            "max": max(vals),
-        }
 
     return {
         "plan_version_id": plan_version_id,

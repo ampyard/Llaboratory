@@ -12,7 +12,7 @@ import csv
 import io
 
 from app.database import get_db
-from app.models import PlanVersion, Session
+from app.models import PlanVersion, Session, Tool, ToolVersion
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
@@ -335,3 +335,129 @@ def export_report(plan_version_id: str, download: bool = False, db: DBSession = 
         media_type="text/markdown; charset=utf-8",
         headers=headers,
     )
+
+
+@router.get("/tool/{tool_id}")
+def aggregate_tool(tool_id: str, db: DBSession = Depends(get_db)):
+    tool = db.get(Tool, tool_id)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+
+    if not tool.versions:
+        return {
+            "tool_id": tool_id,
+            "tool_name": tool.name,
+            "session_count": 0,
+            "tool_calls": 0,
+            "tool_errors": 0,
+            "hallucinated_tool_calls": 0,
+            "per_session": [],
+        }
+
+    # Find all sessions that used any version of this tool (match by tool name in events)
+    all_sessions = db.query(Session).all()
+
+    per_session = []
+    for session in all_sessions:
+        tool_name_lower = tool.name.lower()
+        tool_display_names = {tv.display_name.lower() for tv in tool.versions}
+
+        matched = False
+        for ev in session.events:
+            if ev.type in ("tool_call", "tool_error", "hallucinated_tool_call"):
+                payload = json.loads(ev.payload) if isinstance(ev.payload, str) else ev.payload
+                ev_name = (payload.get("name", "") or "").lower()
+                if ev_name in tool_display_names or ev_name == tool_name_lower:
+                    matched = True
+                    break
+
+        if matched:
+            metrics = _session_metrics_for_tool(session, tool)
+            if metrics:
+                per_session.append(metrics)
+
+    if not per_session:
+        return {
+            "tool_id": tool_id,
+            "tool_name": tool.name,
+            "session_count": 0,
+            "tool_calls": 0,
+            "tool_errors": 0,
+            "hallucinated_tool_calls": 0,
+            "per_session": [],
+        }
+
+    total_calls = sum(m["tool_calls"] for m in per_session)
+    total_errors = sum(m["tool_errors"] for m in per_session)
+    total_hallucinated = sum(m["hallucinated_tool_calls"] for m in per_session)
+    all_latencies = [m["latency_ms"]["mean"] for m in per_session if m["tool_calls"] > 0]
+    all_tokens = [m["total_tokens"] for m in per_session]
+
+    return {
+        "tool_id": tool_id,
+        "tool_name": tool.name,
+        "session_count": len(per_session),
+        "tool_calls": total_calls,
+        "tool_errors": total_errors,
+        "hallucinated_tool_calls": total_hallucinated,
+        "error_rate": round(total_errors / total_calls, 4) if total_calls else 0,
+        "latency_ms": {
+            "mean": round(mean(all_latencies), 1) if all_latencies else 0,
+            "min": round(min(all_latencies), 1) if all_latencies else 0,
+            "max": round(max(all_latencies), 1) if all_latencies else 0,
+        },
+        "total_tokens_stats": safe_stats(all_tokens),
+        "per_session": per_session,
+    }
+
+
+def _session_metrics_for_tool(session: Session, tool: Tool) -> dict | None:
+    """Return per-session metrics for a specific tool, or None if tool was never called in this session."""
+    events = session.events
+    tool_calls = 0
+    tool_errors = 0
+    tool_hallucinated = 0
+    latencies: list[int] = []
+    token_usage: list[dict] = []
+
+    tool_name_lower = tool.name.lower()
+    tool_display_names = {tv.display_name.lower() for tv in tool.versions}
+
+    for ev in events:
+        payload = json.loads(ev.payload) if isinstance(ev.payload, str) else ev.payload
+        ev_name = (payload.get("name", "") or "").lower()
+
+        if ev_name not in tool_display_names and ev_name != tool_name_lower:
+            continue
+
+        if ev.type == "tool_call":
+            tool_calls += 1
+            if ev.latency_ms:
+                latencies.append(ev.latency_ms)
+            if ev.token_usage:
+                tu = json.loads(ev.token_usage) if isinstance(ev.token_usage, str) else ev.token_usage
+                token_usage.append(tu)
+        elif ev.type == "tool_error":
+            tool_errors += 1
+        elif ev.type == "hallucinated_tool_call":
+            tool_hallucinated += 1
+
+    if tool_calls == 0 and tool_errors == 0 and tool_hallucinated == 0:
+        return None
+
+    return {
+        "session_id": session.id,
+        "status": session.status,
+        "started_at": session.started_at.isoformat() if session.started_at else None,
+        "tool_calls": tool_calls,
+        "tool_errors": tool_errors,
+        "hallucinated_tool_calls": tool_hallucinated,
+        "latency_ms": {
+            "mean": round(mean(latencies), 1) if latencies else 0,
+            "min": min(latencies) if latencies else 0,
+            "max": max(latencies) if latencies else 0,
+        },
+        "total_tokens": sum(
+            tu.get("input_tokens", 0) + tu.get("output_tokens", 0) for tu in token_usage
+        ),
+    }

@@ -88,7 +88,8 @@ async def assemble_response(
         "finish_reason": "end_turn"|"tool_call"|"length"|"content_filter"|"error",
         "tool_calls": [{"tool_call_id", "name", "raw_args", "parsed_args"}],
         "token_usage": {"input_tokens", "output_tokens"},
-        "dropped_params": [],
+        "raw_request": { ... },  # full JSON payload sent to provider
+        "raw_response": [ ... ],  # raw SSE JSON chunks from provider
     }
     """
     text_buffer = ""
@@ -97,8 +98,24 @@ async def assemble_response(
     finish_reason_raw = None
     token_usage: dict = {}
     reasoning_buffer = ""
+    raw_chunks: list[dict] = []
+
+    # Build raw request payload (mirrors what stream_completion sends, minus secrets)
+    raw_request: dict = {
+        "model": model,
+        "messages": messages,
+        "stream": True,
+        "stream_options": {"include_usage": True},
+    }
+    if tools:
+        raw_request["tools"] = tools
+        raw_request["tool_choice"] = params.get("tool_choice", "auto")
+    for k in ("temperature", "top_p", "seed", "max_tokens"):
+        if k in params:
+            raw_request[k] = params[k]
 
     async for chunk in stream_completion(base_url, api_key_env, model, messages, tools, dict(params)):
+        raw_chunks.append(chunk)
         choice = (chunk.get("choices") or [{}])[0]
         delta = choice.get("delta", {})
 
@@ -191,4 +208,6 @@ async def assemble_response(
         "finish_reason": finish_reason,
         "tool_calls": tool_calls,
         "token_usage": token_usage,
+        "raw_request": raw_request,
+        "raw_response": raw_chunks,
     }

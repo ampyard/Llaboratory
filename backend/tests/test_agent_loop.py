@@ -56,6 +56,8 @@ def _no_tool_response():
         "finish_reason": "end_turn",
         "tool_calls": [],
         "token_usage": {"input_tokens": 10, "output_tokens": 5},
+        "raw_request": {"model": "test-model", "messages": [{"role": "user", "content": "Hello"}], "stream": True, "stream_options": {"include_usage": True}},
+        "raw_response": [{"choices": [{"delta": {"content": "Done."}, "finish_reason": "stop"}]}],
     }
 
 
@@ -70,6 +72,8 @@ def _tool_call_response(name="dummy_tool"):
             "parsed_args": {},
         }],
         "token_usage": {"input_tokens": 10, "output_tokens": 5},
+        "raw_request": {"model": "test-model", "messages": [{"role": "user", "content": "Hello"}], "stream": True, "stream_options": {"include_usage": True}},
+        "raw_response": [{"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"name": name, "arguments": "{}"}}]}, "finish_reason": "tool_calls"}]}],
     }
 
 
@@ -359,6 +363,145 @@ def test_dynamic_tool_compile_error():
     code = "def respond(args context):\n    pass"  # syntax error
     result, err = execute_tool("dynamic", "{}", code, 1, {}, {})
     assert err is not None
+
+
+# ── raw I/O capture ─────────────────────────────────────────────────────────
+
+async def test_model_request_event_contains_raw_payload(db):
+    """model_request event includes raw_payload matching the provider request body."""
+    session_id = _make_session(db)
+
+    captured_response = _no_tool_response()
+
+    with patch("app.services.agent_loop.assemble_response", AsyncMock(return_value=captured_response)):
+        await run_session(session_id, TestingSessionLocal)
+
+    session = db.get(Session, session_id)
+    db.refresh(session)
+    req_event = next(e for e in session.events if e.type == "model_request")
+    payload = json.loads(req_event.payload)
+    assert "raw_payload" in payload
+    rp = payload["raw_payload"]
+    assert rp["model"] == "test-model"
+    assert rp["stream"] is True
+    assert rp["stream_options"] == {"include_usage": True}
+    assert rp["messages"] == [{"role": "user", "content": "Hello"}]
+
+
+async def test_model_response_event_contains_raw_response(db):
+    """model_response event includes raw_response with provider SSE chunks."""
+    session_id = _make_session(db)
+
+    captured_response = _no_tool_response()
+
+    with patch("app.services.agent_loop.assemble_response", AsyncMock(return_value=captured_response)):
+        await run_session(session_id, TestingSessionLocal)
+
+    session = db.get(Session, session_id)
+    db.refresh(session)
+    resp_event = next(e for e in session.events if e.type == "model_response")
+    payload = json.loads(resp_event.payload)
+    assert "raw_response" in payload
+    raw = payload["raw_response"]
+    assert isinstance(raw, list)
+    assert len(raw) >= 1
+    # First chunk should have choices with a delta
+    assert "choices" in raw[0]
+
+
+async def test_model_request_raw_payload_includes_tools_and_tool_choice(db):
+    """When tools are present, raw_payload includes tools and tool_choice."""
+    plan = Plan(name="tools-plan")
+    db.add(plan)
+    db.flush()
+
+    from app.models import Tool, ToolVersion
+    tool = Tool(name="t")
+    db.add(tool)
+    db.flush()
+    tv = ToolVersion(
+        tool_id=tool.id,
+        version_number=1,
+        display_name="t",
+        model_facing_description="A tool",
+        parameter_schema='{"type":"object","properties":{}}',
+        response_mode="static",
+        static_response='{}',
+    )
+    db.add(tv)
+    db.flush()
+
+    pv = PlanVersion(
+        plan_id=plan.id,
+        version_number=1,
+        model_config_snapshot=_MCS,
+        system_prompt="",
+        user_prompt="Hi",
+        run_settings=_RUN_SETTINGS,
+        tool_versions=[tv],
+    )
+    db.add(pv)
+    db.flush()
+    session = Session(plan_version_id=pv.id, status="pending")
+    db.add(session)
+    db.commit()
+
+    captured_response = _no_tool_response()
+
+    with patch("app.services.agent_loop.assemble_response", AsyncMock(return_value=captured_response)):
+        await run_session(session.id, TestingSessionLocal)
+
+    session = db.get(Session, session.id)
+    db.refresh(session)
+    req_event = next(e for e in session.events if e.type == "model_request")
+    payload = json.loads(req_event.payload)
+    rp = payload["raw_payload"]
+    assert "tools" in rp
+    assert rp["tool_choice"] == "auto"
+    assert isinstance(rp["tools"], list)
+    assert rp["tools"][0]["function"]["name"] == "t"
+
+
+async def test_model_request_raw_payload_includes_params(db):
+    """Extra params like temperature appear in raw_payload."""
+    plan = Plan(name="params-plan")
+    db.add(plan)
+    db.flush()
+
+    mcs_with_params = json.dumps({
+        "base_url": "https://api.example.com/v1",
+        "api_key_env": "FAKE_KEY",
+        "model_snapshot": "test-model",
+        "params": json.dumps({"temperature": 0.7, "max_tokens": 512}),
+        "input_cost_per_1k": 0.0,
+        "output_cost_per_1k": 0.0,
+    })
+    pv = PlanVersion(
+        plan_id=plan.id,
+        version_number=1,
+        model_config_snapshot=mcs_with_params,
+        system_prompt="",
+        user_prompt="Hi",
+        run_settings=_RUN_SETTINGS,
+    )
+    db.add(pv)
+    db.flush()
+    session = Session(plan_version_id=pv.id, status="pending")
+    db.add(session)
+    db.commit()
+
+    captured_response = _no_tool_response()
+
+    with patch("app.services.agent_loop.assemble_response", AsyncMock(return_value=captured_response)):
+        await run_session(session.id, TestingSessionLocal)
+
+    session = db.get(Session, session.id)
+    db.refresh(session)
+    req_event = next(e for e in session.events if e.type == "model_request")
+    payload = json.loads(req_event.payload)
+    rp = payload["raw_payload"]
+    assert rp["temperature"] == 0.7
+    assert rp["max_tokens"] == 512
 
 
 # ── execute_tool: unknown mode ───────────────────────────────────────────────

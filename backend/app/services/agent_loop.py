@@ -185,10 +185,25 @@ async def _run(session_id: str, db: DBSession) -> None:
 
             total_turns += 1
 
+            # Build raw request payload (mirrors provider.stream_completion)
+            raw_request: dict[str, Any] = {
+                "model": mcs["model_snapshot"],
+                "messages": messages,
+                "stream": True,
+                "stream_options": {"include_usage": True},
+            }
+            if tool_defs:
+                raw_request["tools"] = tool_defs
+                raw_request["tool_choice"] = model_params.get("tool_choice", "auto")
+            for k in ("temperature", "top_p", "seed", "max_tokens"):
+                if k in model_params:
+                    raw_request[k] = model_params[k]
+
             await _emit(db, session_id, seq, "model_request", {
                 "messages": messages,
                 "tools": tool_defs,
                 "params": model_params,
+                "raw_payload": raw_request,
             })
             seq += 1
 
@@ -244,6 +259,7 @@ async def _run(session_id: str, db: DBSession) -> None:
                 {
                     "content_parts": response["content_parts"],
                     "finish_reason": response["finish_reason"],
+                    "raw_response": response.get("raw_response"),
                 },
                 latency_ms=latency_ms,
                 token_usage=usage,

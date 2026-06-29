@@ -72,16 +72,21 @@ function buildSankeyData(sessions: PerSession[]): SankeyData {
 }
 
 interface SankeyNodeProps {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  index: number;
-  name: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  index?: number;
+  name?: string;
 }
 
 const VibrantNode = (props: SankeyNodeProps) => {
-  const { x, y, width, height, index, name } = props;
+  const x = props.x ?? 0;
+  const y = props.y ?? 0;
+  const width = props.width ?? 0;
+  const height = props.height ?? 0;
+  const index = props.index ?? 0;
+  const name = props.name ?? '';
   const color = colorAt(index);
   return (
     <g>
@@ -169,7 +174,7 @@ export default function ToolCallSankey({ sessions }: Props) {
       <ResponsiveContainer>
         <Sankey
           data={data}
-          node={VibrantNode as unknown as React.ReactElement}
+          node={VibrantNode}
           link={{ stroke: '#94A3B8', strokeOpacity: 0.3 }}
           nodePadding={12}
           margin={{ left: 10, right: 120, top: 10, bottom: 10 }}

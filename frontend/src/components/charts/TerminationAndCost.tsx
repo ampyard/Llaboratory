@@ -80,7 +80,7 @@ function buildCostHistogram(costs: number[], binCount = 10): CostBin[] {
     bins.push({ lo: min + i * binWidth, hi: min + (i + 1) * binWidth, count: 0 });
   }
   for (const cost of costs) {
-    let idx = Math.min(Math.floor((cost - min) / binWidth), binCount - 1);
+    const idx = Math.min(Math.floor((cost - min) / binWidth), binCount - 1);
     bins[idx].count++;
   }
   return bins.map(b => ({
@@ -89,7 +89,13 @@ function buildCostHistogram(costs: number[], binCount = 10): CostBin[] {
   }));
 }
 
-function PieTooltip({ active, payload }: any) {
+interface PieTooltipPayload {
+  name: string;
+  value: number;
+  payload: { color: string; total: number };
+}
+
+function PieTooltip({ active, payload }: { active?: boolean; payload?: PieTooltipPayload[] }) {
   if (!active || !payload || payload.length === 0) return null;
   const d = payload[0];
   return (
@@ -103,7 +109,11 @@ function PieTooltip({ active, payload }: any) {
   );
 }
 
-function BarTooltip({ active, payload }: any) {
+interface BarTooltipPayload {
+  payload: { range: string; count: number };
+}
+
+function BarTooltip({ active, payload }: { active?: boolean; payload?: BarTooltipPayload[] }) {
   if (!active || !payload || payload.length === 0) return null;
   const d = payload[0].payload;
   return (

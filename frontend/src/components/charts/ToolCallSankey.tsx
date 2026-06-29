@@ -71,7 +71,16 @@ function buildSankeyData(sessions: PerSession[]): SankeyData {
   return { name: 'Tool Call Flow', nodes, links: finalLinks };
 }
 
-const VibrantNode = (props: any) => {
+interface SankeyNodeProps {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  index: number;
+  name: string;
+}
+
+const VibrantNode = (props: SankeyNodeProps) => {
   const { x, y, width, height, index, name } = props;
   const color = colorAt(index);
   return (
@@ -101,7 +110,16 @@ const VibrantNode = (props: any) => {
   );
 };
 
-function CustomTooltip({ active, payload }: any) {
+interface TooltipPayload {
+  payload?: {
+    name?: string;
+    source?: { name: string };
+    target?: { name: string };
+    value?: number;
+  };
+}
+
+function CustomTooltip({ active, payload }: { active?: boolean; payload?: TooltipPayload[] }) {
   if (!active || !payload || payload.length === 0) return null;
   const data = payload[0]?.payload;
   if (!data?.source?.name && !data?.target?.name) return null;
@@ -151,7 +169,7 @@ export default function ToolCallSankey({ sessions }: Props) {
       <ResponsiveContainer>
         <Sankey
           data={data}
-          node={<VibrantNode />}
+          node={VibrantNode as unknown as React.ReactElement}
           link={{ stroke: '#94A3B8', strokeOpacity: 0.3 }}
           nodePadding={12}
           margin={{ left: 10, right: 120, top: 10, bottom: 10 }}

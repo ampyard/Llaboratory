@@ -4,6 +4,40 @@ import { ArrowLeft, BarChart2, Download, FileText, Sparkles } from 'lucide-react
 import { api } from '../api/client'
 import { ToolCallSankey, TerminationAndCost, HallucinationChart } from '../components/charts'
 
+interface AnalysisSession {
+  session_id: string
+  status: string
+  termination_reason: string | null
+  started_at: string | null
+  any_tool_called: boolean
+  tool_calls: Record<string, number>
+  tool_sequence: string[]
+  hallucinated_tool_calls: number
+  tool_errors: number
+  turns: number
+  total_tool_calls: number
+  input_tokens: number
+  output_tokens: number
+  cost_usd: number
+  wall_clock_ms: number
+  first_tool: string | null
+}
+
+interface Analysis {
+  plan_version_id: string
+  session_count: number
+  completed: number
+  errored: number
+  aborted: number
+  no_tool_call_rate: number
+  tool_selection_counts: Record<string, number>
+  first_tool_distribution: Record<string, number>
+  turns_stats: { mean: number; stdev: number; min: number; max: number }
+  cost_usd_stats: { mean: number; stdev: number; min: number; max: number }
+  total_tokens_stats: { mean: number; stdev: number; min: number; max: number }
+  per_session: AnalysisSession[]
+}
+
 function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children?: React.ReactNode }) {
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -39,7 +73,7 @@ export default function PlanStats() {
 
   const { data: analysis, isLoading } = useQuery({
     queryKey: ['analysis', targetVersion?.id],
-    queryFn: () => api.analysis.planVersion(targetVersion!.id),
+    queryFn: () => api.analysis.planVersion(targetVersion!.id) as unknown as Promise<Analysis>,
     enabled: !!targetVersion,
   })
 
@@ -68,7 +102,7 @@ export default function PlanStats() {
             <span className="text-gray-300 font-normal text-lg"> | v{targetVersion?.version_number}</span>
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            Interactive results from {(analysis as any)?.session_count ?? 0} session(s)
+            Interactive results from {analysis?.session_count ?? 0} session(s)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -110,115 +144,95 @@ export default function PlanStats() {
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-pink-500/20 animate-pulse mb-4" />
           <p className="text-sm text-gray-400">Loading analytics...</p>
         </div>
-      ) : !analysis || (analysis as any).session_count === 0 ? (
+      ) : !analysis || analysis.session_count === 0 ? (
         <div className="border-2 border-dashed border-gray-200 rounded-2xl p-16 text-center">
           <BarChart2 className="w-10 h-10 text-gray-200 mx-auto mb-3" />
           <p className="text-gray-500 text-sm font-medium">No session data yet</p>
           <p className="text-gray-400 text-xs mt-1">Run some sessions on this plan version to see vibrant visualizations.</p>
         </div>
-      ) : (() => {
-        const s = analysis as Record<string, unknown>
-        const perSession = (s.per_session as Record<string, unknown>[]) ?? []
-        const sessionCount = s.session_count as number
+      ) : (
+        <div className="space-y-6">
+          {/* Chart Row: Termination Pie + Cost Histogram */}
+          <ChartCard
+            title="Session Outcomes & Cost"
+            subtitle={`${analysis.session_count} sessions - ${analysis.completed} completed`}
+          >
+            <TerminationAndCost sessions={analysis.per_session} />
+          </ChartCard>
 
-        return (
-          <div className="space-y-6">
-            {/* Chart Row: Termination Pie + Cost Histogram */}
-            <ChartCard
-              title="Session Outcomes & Cost"
-              subtitle={`${sessionCount} sessions - ${(s.completed as number ?? 0)} completed`}
-            >
-              <TerminationAndCost sessions={perSession as any} />
-            </ChartCard>
+          {/* Chart: Tool Call Flow (Sankey) */}
+          <ChartCard
+            title="Tool Call Flow"
+            subtitle="Which tools did the model reach for, and in what order?"
+          >
+            <ToolCallSankey sessions={analysis.per_session} />
+          </ChartCard>
 
-            {/* Chart: Tool Call Flow (Sankey) */}
-            <ChartCard
-              title="Tool Call Flow"
-              subtitle="Which tools did the model reach for, and in what order?"
-            >
-              <ToolCallSankey sessions={perSession as any} />
-            </ChartCard>
-
-            {/* Chart: Hallucination / Error Analysis */}
-            <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-800 leading-tight">Tool Reliability</h3>
-                  <p className="text-xs text-gray-400">Valid calls vs errors - where does the model struggle?</p>
-                </div>
+          {/* Chart: Hallucination / Error Analysis */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <HallucinationChart sessions={perSession as any} />
-            </div>
-
-            {/* Quick Stats Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {([
-                {
-                  label: 'Avg turns',
-                  value: (s.turns_stats as any)?.mean?.toFixed(1) ?? '-',
-                  color: 'from-indigo-500 to-violet-500',
-                },
-                {
-                  label: 'Avg cost',
-                  value: `$${(s.cost_usd_stats as any)?.mean?.toFixed(5) ?? '-'}`,
-                  color: 'from-emerald-500 to-teal-500',
-                },
-                {
-                  label: 'Avg tokens',
-                  value: Math.round((s.total_tokens_stats as any)?.mean ?? 0).toLocaleString() || '-',
-                  color: 'from-cyan-500 to-blue-500',
-                },
-                {
-                  label: 'No-tool rate',
-                  value: `${(((s.no_tool_call_rate as number) ?? 0) * 100).toFixed(0)}%`,
-                  color: 'from-amber-500 to-orange-500',
-                },
-              ]).map(stat => (
-                <div
-                  key={stat.label}
-                  className={`bg-gradient-to-br ${stat.color} rounded-2xl p-4 text-white`}
-                >
-                  <p className="text-xs font-medium opacity-80">{stat.label}</p>
-                  <p className="text-xl font-bold mt-1">{stat.value}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Tool Selection Table */}
-            {!!s.tool_selection_counts && Object.keys(s.tool_selection_counts as any).length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                <h3 className="text-sm font-bold text-gray-800 mb-3">Tool Selection Frequency</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
-                  {Object.entries(s.tool_selection_counts as Record<string, number>)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([tool, count], i) => {
-                      const pct = (count / sessionCount) * 100
-                      const colors = ['from-indigo-500 to-pink-500', 'from-cyan-500 to-blue-500', 'from-emerald-500 to-teal-500', 'from-amber-500 to-orange-500', 'from-violet-500 to-purple-500']
-                      const grad = colors[i % colors.length]
-                      return (
-                        <div key={tool}>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-sm font-semibold text-gray-700 font-mono">{tool}</span>
-                            <span className="text-xs text-gray-400">{count} calls ({pct.toFixed(0)}%)</span>
-                          </div>
-                          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full bg-gradient-to-r ${grad} rounded-full transition-all duration-500`}
-                              style={{ width: `${Math.min(pct, 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
-                </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-800 leading-tight">Tool Reliability</h3>
+                <p className="text-xs text-gray-400">Valid calls vs errors - where does the model struggle?</p>
               </div>
-            )}
+            </div>
+            <HallucinationChart sessions={analysis.per_session} />
           </div>
-        )
-      })()}
+
+          {/* Quick Stats Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-gradient-to-br from-indigo-500 to-violet-500 rounded-2xl p-4 text-white">
+              <p className="text-xs font-medium opacity-80">Avg turns</p>
+              <p className="text-xl font-bold mt-1">{analysis.turns_stats?.mean?.toFixed(1) ?? '-'}</p>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl p-4 text-white">
+              <p className="text-xs font-medium opacity-80">Avg cost</p>
+              <p className="text-xl font-bold mt-1">${analysis.cost_usd_stats?.mean?.toFixed(5) ?? '-'}</p>
+            </div>
+            <div className="bg-gradient-to-br from-cyan-500 to-blue-500 rounded-2xl p-4 text-white">
+              <p className="text-xs font-medium opacity-80">Avg tokens</p>
+              <p className="text-xl font-bold mt-1">{Math.round(analysis.total_tokens_stats?.mean ?? 0).toLocaleString() || '-'}</p>
+            </div>
+            <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-4 text-white">
+              <p className="text-xs font-medium opacity-80">No-tool rate</p>
+              <p className="text-xl font-bold mt-1">{((analysis.no_tool_call_rate ?? 0) * 100).toFixed(0)}%</p>
+            </div>
+          </div>
+
+          {/* Tool Selection Table */}
+          {analysis.tool_selection_counts && Object.keys(analysis.tool_selection_counts).length > 0 && (
+            <div className="bg-white border border-gray-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-3">Tool Selection Frequency</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
+                {Object.entries(analysis.tool_selection_counts)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([tool, count], i) => {
+                    const pct = (count / analysis.session_count) * 100
+                    const colors = ['from-indigo-500 to-pink-500', 'from-cyan-500 to-blue-500', 'from-emerald-500 to-teal-500', 'from-amber-500 to-orange-500', 'from-violet-500 to-purple-500']
+                    const grad = colors[i % colors.length]
+                    return (
+                      <div key={tool}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-sm font-semibold text-gray-700 font-mono">{tool}</span>
+                          <span className="text-xs text-gray-400">{count} calls ({pct.toFixed(0)}%)</span>
+                        </div>
+                        <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full bg-gradient-to-r ${grad} rounded-full transition-all duration-500`}
+                            style={{ width: `${Math.min(pct, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

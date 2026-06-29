@@ -75,10 +75,15 @@ function getAggregateSummary(sessions: PerSession[]): SessionSummary {
   return { total_hallucinated: totalHall, total_errors: totalErr, total_valid: totalValid };
 }
 
-function StackedTooltip({ active, payload, label }: any) {
+interface BarTooltipPayloadEntry {
+  dataKey: string;
+  value: number;
+}
+
+function StackedTooltip({ active, payload, label }: { active?: boolean; payload?: BarTooltipPayloadEntry[]; label?: string }) {
   if (!active || !payload || payload.length === 0) return null;
-  const valid = payload.find((p: any) => p.dataKey === 'valid')?.value ?? 0;
-  const errors = payload.find((p: any) => p.dataKey === 'errors')?.value ?? 0;
+  const valid = payload.find(p => p.dataKey === 'valid')?.value ?? 0;
+  const errors = payload.find(p => p.dataKey === 'errors')?.value ?? 0;
   const total = valid + errors;
   const errorRate = total > 0 ? ((errors / total) * 100).toFixed(1) : '0';
 

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { api } from '../api/client'
+import PythonCodeEditor from '../components/PythonCodeEditor'
 
 interface Param {
   name: string
@@ -248,10 +249,11 @@ export default function ToolBuilder() {
             <label className="text-xs font-medium text-gray-600 mb-1 block">
               Python — <code className="bg-gray-100 px-1 rounded">def respond(args, context)</code>
             </label>
-            <textarea
-              className="input font-mono text-xs min-h-[160px] resize-y"
+            <PythonCodeEditor
               value={dynamicCode}
-              onChange={e => setDynamicCode(e.target.value)}
+              onChange={setDynamicCode}
+              minHeight="160px"
+              data-testid="dynamic-code-editor"
             />
             <p className="text-xs text-amber-600 mt-1">Executes in-process without sandboxing. Only use code you authored.</p>
           </div>

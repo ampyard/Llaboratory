@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, BarChart2, Wrench } from 'lucide-react'
+import { ArrowLeft, BarChart2 } from 'lucide-react'
 import { api } from '../api/client'
 
 export default function ToolStats() {

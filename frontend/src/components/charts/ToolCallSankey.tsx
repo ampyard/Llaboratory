@@ -1,10 +1,4 @@
-import { useMemo } from 'react';
-import {
-  ResponsiveContainer,
-  Sankey,
-  Tooltip,
-  Rectangle,
-} from 'recharts';
+import { useMemo, useState } from 'react';
 import { colorAt } from '../../theme/chartColors';
 
 interface PerSession {
@@ -44,7 +38,9 @@ function buildSankeyData(sessions: PerSession[]): SankeyData {
     .map(([name]) => name);
 
   const nodePositions: Record<string, number> = {};
-  sortedNodes.forEach((name, i) => { nodePositions[name] = i; });
+  sortedNodes.forEach((name, i) => {
+    nodePositions[name] = i;
+  });
 
   const nodes = sortedNodes.map(name => ({ name }));
 
@@ -71,83 +67,17 @@ function buildSankeyData(sessions: PerSession[]): SankeyData {
   return { name: 'Tool Call Flow', nodes, links: finalLinks };
 }
 
-interface SankeyNodeProps {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  index?: number;
-  name?: string;
-}
-
-const VibrantNode = (props: SankeyNodeProps) => {
-  const x = props.x ?? 0;
-  const y = props.y ?? 0;
-  const width = props.width ?? 0;
-  const height = props.height ?? 0;
-  const index = props.index ?? 0;
-  const name = props.name ?? '';
-  const color = colorAt(index);
-  return (
-    <g>
-      <Rectangle
-        x={x}
-        y={y}
-        width={width}
-        height={height}
-        fill={color}
-        fillOpacity={0.85}
-        rx={4}
-        ry={4}
-      />
-      <text
-        x={x + width + 8}
-        y={y + height / 2}
-        textAnchor="start"
-        dominantBaseline="central"
-        fontSize={11}
-        fontWeight={600}
-        fill="#374151"
-      >
-        {name}
-      </text>
-    </g>
-  );
-};
-
-interface TooltipPayload {
-  payload?: {
-    name?: string;
-    source?: { name: string };
-    target?: { name: string };
-    value?: number;
-  };
-}
-
-function CustomTooltip({ active, payload }: { active?: boolean; payload?: TooltipPayload[] }) {
-  if (!active || !payload || payload.length === 0) return null;
-  const data = payload[0]?.payload;
-  if (!data?.source?.name && !data?.target?.name) return null;
-
-  if (data.name) {
-    return (
-      <div className="bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-200 text-xs">
-        <span className="font-semibold text-gray-700">{data.name}</span>
-      </div>
-    );
-  }
-  return (
-    <div className="bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-200 text-xs">
-      <span className="font-semibold text-gray-700">
-        {data.source?.name}{' -> '}{data.target?.name}
-      </span>
-      <div className="text-gray-500 mt-0.5">{data.value} transition(s)</div>
-    </div>
-  );
+interface HoveredLink {
+  source: string;
+  target: string;
+  value: number;
+  x: number;
+  y: number;
 }
 
 export default function ToolCallSankey({ sessions }: Props) {
   const data = useMemo(() => buildSankeyData(sessions), [sessions]);
+  const [hoveredLink, setHoveredLink] = useState<HoveredLink | null>(null);
 
   if (data.nodes.length === 0) return null;
   if (data.links.length === 0) {
@@ -169,19 +99,85 @@ export default function ToolCallSankey({ sessions }: Props) {
     );
   }
 
+  const chartWidth = Math.max(420, Math.min(760, data.nodes.length * 140));
+  const chartHeight = Math.max(220, data.nodes.length * 32 + 60);
+  const startX = 24;
+  const endX = chartWidth - 170;
+  const nodeWidth = 14;
+  const nodeHeight = 12;
+  const rowGap = Math.max(24, (chartHeight - 40) / Math.max(1, data.nodes.length));
+  const maxLinkValue = Math.max(...data.links.map(link => link.value), 1);
+
   return (
-    <div style={{ width: '100%', height: Math.max(220, data.nodes.length * 32 + 60) }}>
-      <ResponsiveContainer>
-        <Sankey
-          data={data}
-          node={VibrantNode}
-          link={{ stroke: '#94A3B8', strokeOpacity: 0.3 }}
-          nodePadding={12}
-          margin={{ left: 10, right: 120, top: 10, bottom: 10 }}
+    <div style={{ width: '100%', height: chartHeight, overflow: 'visible', position: 'relative' }}>
+      <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-full">
+        {data.links.map((link, index) => {
+          const sourceNode = data.nodes[link.source];
+          const targetNode = data.nodes[link.target];
+          const sourceY = 24 + link.source * rowGap + nodeHeight / 2;
+          const targetY = 24 + link.target * rowGap + nodeHeight / 2;
+          const strokeWidth = Math.max(3, (link.value / maxLinkValue) * 18);
+          const isHovered = hoveredLink?.source === sourceNode.name && hoveredLink?.target === targetNode.name;
+          const midX = (startX + nodeWidth + endX) / 2;
+          const midY = (sourceY + targetY) / 2;
+
+          return (
+            <g key={`${sourceNode.name}-${targetNode.name}-${index}`}>
+              <path
+                d={`M ${startX + nodeWidth} ${sourceY} C ${startX + nodeWidth + 70} ${sourceY}, ${endX - 70} ${targetY}, ${endX} ${targetY}`}
+                stroke={colorAt(link.source)}
+                strokeWidth={isHovered ? strokeWidth + 2 : strokeWidth}
+                strokeOpacity={isHovered ? 0.95 : 0.75}
+                fill="none"
+                strokeLinecap="round"
+                data-link="true"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredLink({ source: sourceNode.name, target: targetNode.name, value: link.value, x: midX, y: midY })}
+                onMouseLeave={() => setHoveredLink(null)}
+              />
+            </g>
+          );
+        })}
+
+        {data.nodes.map((node, index) => {
+          const y = 24 + index * rowGap;
+          return (
+            <g key={node.name}>
+              <rect
+                x={startX}
+                y={y}
+                width={nodeWidth}
+                height={nodeHeight}
+                rx={3}
+                ry={3}
+                fill={colorAt(index)}
+                fillOpacity={0.9}
+              />
+              <text
+                x={startX + nodeWidth + 8}
+                y={y + nodeHeight / 2}
+                textAnchor="start"
+                dominantBaseline="central"
+                fontSize={11}
+                fontWeight={600}
+                fill="#374151"
+              >
+                {node.name}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+
+      {hoveredLink && (
+        <div
+          className="absolute rounded-lg border border-gray-200 bg-white/95 px-3 py-2 text-xs shadow-lg"
+          style={{ left: Math.min(chartWidth - 140, hoveredLink.x + 10), top: Math.max(8, hoveredLink.y - 18) }}
         >
-          <Tooltip content={<CustomTooltip />} />
-        </Sankey>
-      </ResponsiveContainer>
+          <div className="font-semibold text-gray-700">{hoveredLink.source} → {hoveredLink.target}</div>
+          <div className="text-gray-500">{hoveredLink.value} transition{hoveredLink.value === 1 ? '' : 's'}</div>
+        </div>
+      )}
     </div>
   );
 }

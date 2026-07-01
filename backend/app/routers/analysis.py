@@ -385,6 +385,7 @@ def aggregate_tool(tool_id: str, db: DBSession = Depends(get_db)):
             "tool_calls": 0,
             "tool_errors": 0,
             "hallucinated_tool_calls": 0,
+            "per_model": {},
             "per_session": [],
         }
 
@@ -393,6 +394,18 @@ def aggregate_tool(tool_id: str, db: DBSession = Depends(get_db)):
     total_hallucinated = sum(m["hallucinated_tool_calls"] for m in per_session)
     all_latencies = [m["latency_ms"]["mean"] for m in per_session if m["tool_calls"] > 0]
     all_tokens = [m["total_tokens"] for m in per_session]
+
+    # Aggregate per-model stats
+    per_model: dict[str, dict] = {}
+    for m in per_session:
+        model = m["model_name"]
+        if model not in per_model:
+            per_model[model] = {"calls": 0, "errors": 0, "hallucinated": 0, "sessions": 0, "total_tokens": 0}
+        per_model[model]["calls"] += m["tool_calls"]
+        per_model[model]["errors"] += m["tool_errors"]
+        per_model[model]["hallucinated"] += m["hallucinated_tool_calls"]
+        per_model[model]["sessions"] += 1
+        per_model[model]["total_tokens"] += m["total_tokens"]
 
     return {
         "tool_id": tool_id,
@@ -408,8 +421,19 @@ def aggregate_tool(tool_id: str, db: DBSession = Depends(get_db)):
             "max": round(max(all_latencies), 1) if all_latencies else 0,
         },
         "total_tokens_stats": safe_stats(all_tokens),
+        "per_model": per_model,
         "per_session": per_session,
     }
+
+
+def _get_model_name(session: Session) -> str:
+    """Extract model name from session's plan version snapshot."""
+    try:
+        pv = session.plan_version
+        snapshot = json.loads(pv.model_config_snapshot) if isinstance(pv.model_config_snapshot, str) else pv.model_config_snapshot
+        return snapshot.get("model_snapshot", "unknown")
+    except Exception:
+        return "unknown"
 
 
 def _session_metrics_for_tool(session: Session, tool: Tool) -> dict | None:
@@ -446,10 +470,13 @@ def _session_metrics_for_tool(session: Session, tool: Tool) -> dict | None:
     if tool_calls == 0 and tool_errors == 0 and tool_hallucinated == 0:
         return None
 
+    model_name = _get_model_name(session)
+
     return {
         "session_id": session.id,
         "status": session.status,
         "started_at": session.started_at.isoformat() if session.started_at else None,
+        "model_name": model_name,
         "tool_calls": tool_calls,
         "tool_errors": tool_errors,
         "hallucinated_tool_calls": tool_hallucinated,

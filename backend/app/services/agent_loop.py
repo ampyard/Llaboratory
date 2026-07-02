@@ -226,6 +226,10 @@ async def _run(session_id: str, db: DBSession) -> None:
                     stream_callback=_stream_cb,
                 )
             except ProviderError as e:
+                # Emit the first ProviderError to the session stream so UI can show it
+                await _emit(db, session_id, seq, "provider_error", {"error": str(e), "retryable": bool(e.retryable), "headers": getattr(e, "headers", None)})
+                seq += 1
+
                 if e.retryable:
                     # Simple single retry after 2s
                     await asyncio.sleep(2)

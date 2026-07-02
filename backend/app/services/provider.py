@@ -8,9 +8,10 @@ import httpx
 
 
 class ProviderError(Exception):
-    def __init__(self, message: str, retryable: bool = False):
+    def __init__(self, message: str, retryable: bool = False, headers: dict | None = None):
         super().__init__(message)
         self.retryable = retryable
+        self.headers = headers
 
 
 async def stream_completion(
@@ -52,12 +53,23 @@ async def stream_completion(
         try:
             async with client.stream("POST", url, headers=headers, json=payload) as resp:
                 if resp.status_code == 401:
-                    raise ProviderError("Auth failure — check your API key env var", retryable=False)
+                    raise ProviderError("Auth failure — check your API key env var", retryable=False, headers=dict(resp.headers))
                 if resp.status_code == 400:
                     body = await resp.aread()
-                    raise ProviderError(f"Bad request: {body.decode()}", retryable=False)
+                    raise ProviderError(f"Bad request: {body.decode()}", retryable=False, headers=dict(resp.headers))
+                if resp.status_code == 429:
+                    # Rate limiting — surface headers (Retry-After may be present) and mark retryable
+                    body = await resp.aread()
+                    msg = f"Too Many Requests: {resp.status_code}"
+                    try:
+                        body_text = body.decode()
+                        if body_text:
+                            msg = f"Too Many Requests: {body_text}"
+                    except Exception:
+                        pass
+                    raise ProviderError(msg, retryable=False, headers=dict(resp.headers))
                 if resp.status_code >= 500:
-                    raise ProviderError(f"Provider 5xx: {resp.status_code}", retryable=True)
+                    raise ProviderError(f"Provider 5xx: {resp.status_code}", retryable=True, headers=dict(resp.headers))
                 resp.raise_for_status()
                 async for line in resp.aiter_lines():
                     if not line.startswith("data: "):

@@ -60,6 +60,7 @@ export default function PlanStats() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const versionIdParam = searchParams.get('versionId')
+  const batchIdParam = searchParams.get('batchId')
 
   const { data: plan } = useQuery({
     queryKey: ['plans', planId],
@@ -72,8 +73,8 @@ export default function PlanStats() {
     : plan?.versions[plan.versions.length - 1]
 
   const { data: analysis, isLoading } = useQuery({
-    queryKey: ['analysis', targetVersion?.id],
-    queryFn: () => api.analysis.planVersion(targetVersion!.id) as unknown as Promise<Analysis>,
+    queryKey: ['analysis', targetVersion?.id, batchIdParam],
+    queryFn: () => api.analysis.planVersion(targetVersion!.id, batchIdParam ?? undefined) as unknown as Promise<Analysis>,
     enabled: !!targetVersion,
   })
 
@@ -102,7 +103,20 @@ export default function PlanStats() {
             <span className="text-gray-300 font-normal text-lg"> | v{targetVersion?.version_number}</span>
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            Interactive results from {analysis?.session_count ?? 0} session(s)
+            {batchIdParam
+              ? `Interactive results from this batch (${analysis?.session_count ?? 0} session(s))`
+              : `Interactive results from all ${analysis?.session_count ?? 0} session(s)`}
+            {batchIdParam && (
+              <>
+                {' · '}
+                <Link
+                  to={`/plans/${planId}/stats${versionIdParam ? `?versionId=${versionIdParam}` : ''}`}
+                  className="text-indigo-500 hover:text-indigo-700 hover:underline"
+                >
+                  view all history
+                </Link>
+              </>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">

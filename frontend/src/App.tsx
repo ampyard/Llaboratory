@@ -12,6 +12,8 @@ import PlanVersions from './pages/PlanVersions'
 import ToolStats from './pages/ToolStats'
 import Sessions from './pages/Sessions'
 import SessionDetail from './pages/SessionDetail'
+import Batches from './pages/Batches'
+import BatchDetail from './pages/BatchDetail'
 
 export default function App() {
   return (
@@ -31,8 +33,10 @@ export default function App() {
           <Route path="plans/:planId/stats" element={<PlanStats />} />
           <Route path="plans/:planId/report" element={<PlanReport />} />
           <Route path="plans/:planId/versions" element={<PlanVersions />} />
+          <Route path="plans/:planId/runs/:batchId" element={<BatchDetail />} />
           <Route path="sessions" element={<Sessions />} />
           <Route path="sessions/:sessionId" element={<SessionDetail />} />
+          <Route path="batches" element={<Batches />} />
         </Route>
       </Routes>
     </BrowserRouter>

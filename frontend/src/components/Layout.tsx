@@ -1,12 +1,14 @@
 import { Outlet, NavLink } from 'react-router-dom'
-import { Wrench, Server, FlaskConical, Play } from 'lucide-react'
+import { Wrench, Server, FlaskConical, Play, Layers } from 'lucide-react'
 
 const nav = [
   { to: '/tools', label: 'Tool Library', icon: Wrench },
   { to: '/models', label: 'Model Configs', icon: Server },
   { to: '/plans', label: 'Plans', icon: FlaskConical },
+  { divider: true },
   { to: '/sessions', label: 'Sessions', icon: Play },
-]
+  { to: '/batches', label: 'Batch Runs', icon: Layers },
+] as const
 
 export default function Layout() {
   return (
@@ -18,22 +20,26 @@ export default function Layout() {
           <span className="font-bold text-gray-900 text-base tracking-tight">Llaboratory</span>
         </div>
         <nav className="flex-1 p-3 space-y-0.5">
-          {nav.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`
-              }
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              {label}
-            </NavLink>
-          ))}
+          {nav.map((item, i) =>
+            'divider' in item ? (
+              <hr key={i} className="my-2 border-gray-200" />
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`
+                }
+              >
+                <item.icon className="w-4 h-4 shrink-0" />
+                {item.label}
+              </NavLink>
+            )
+          )}
         </nav>
         <div className="px-4 py-3 border-t border-gray-200">
           <p className="text-xs text-gray-400">MVP v0.3.0</p>

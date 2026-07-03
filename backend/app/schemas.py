@@ -217,6 +217,8 @@ class EventOut(BaseModel):
 class SessionOut(BaseModel):
     id: str
     plan_version_id: str
+    batch_id: str | None = None
+    batch_index: int = 0
     started_at: datetime | None
     ended_at: datetime | None
     status: str
@@ -239,3 +241,50 @@ class SessionOut(BaseModel):
 class SessionDetailOut(SessionOut):
     events: list[EventOut]
     plan_version: PlanVersionOut
+
+
+# ── RunBatch ──────────────────────────────────────────────────────────────────
+
+class RunBatchCreate(BaseModel):
+    plan_version_id: str
+    name: str = ""
+    repetitions: int | None = None  # None => use plan_version.run_settings.repetitions
+
+class RunBatchOut(BaseModel):
+    id: str
+    plan_version_id: str
+    name: str
+    requested_repetitions: int
+    status: str
+    created_at: datetime
+    started_at: datetime | None
+    ended_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+class RunBatchSessionSummary(BaseModel):
+    id: str
+    batch_index: int
+    status: str
+    termination_reason: str | None
+    totals: dict
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("totals", mode="before")
+    @classmethod
+    def parse_totals(cls, v):
+        return json.loads(v) if isinstance(v, str) else v
+
+class RunBatchProgressOut(BaseModel):
+    id: str
+    plan_version_id: str
+    name: str
+    status: str
+    requested_repetitions: int
+    completed_count: int
+    running_count: int
+    pending_count: int
+    current_session_id: str | None
+    session_ids: list[str]
+    sessions: list[RunBatchSessionSummary]

@@ -77,12 +77,49 @@ export type SessionStatus = 'pending' | 'running' | 'completed' | 'aborted' | 'e
 export interface Session {
   id: string
   plan_version_id: string
+  batch_id: string | null
+  batch_index: number
   started_at: string | null
   ended_at: string | null
   status: SessionStatus
   termination_reason: string | null
   tool_order_used: string[]
   totals: Partial<SessionTotals>
+}
+
+export type RunBatchStatus = 'pending' | 'running' | 'completed' | 'aborted' | 'errored'
+
+export interface RunBatch {
+  id: string
+  plan_version_id: string
+  name: string
+  requested_repetitions: number
+  status: RunBatchStatus
+  created_at: string
+  started_at: string | null
+  ended_at: string | null
+}
+
+export interface RunBatchSessionSummary {
+  id: string
+  batch_index: number
+  status: SessionStatus
+  termination_reason: string | null
+  totals: Partial<SessionTotals>
+}
+
+export interface RunBatchProgress {
+  id: string
+  plan_version_id: string
+  name: string
+  status: RunBatchStatus
+  requested_repetitions: number
+  completed_count: number
+  running_count: number
+  pending_count: number
+  current_session_id: string | null
+  session_ids: string[]
+  sessions: RunBatchSessionSummary[]
 }
 
 export interface Event {

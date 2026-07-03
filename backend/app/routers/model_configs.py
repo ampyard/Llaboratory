@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 import json
 
 from app.database import get_db
-from app.models import ModelConfig
+from app.models import ModelConfig, PlanVersion
 from app.schemas import ModelConfigCreate, ModelConfigOut, ModelConfigUpdate
 
 router = APIRouter(prefix="/model-configs", tags=["model-configs"])
@@ -59,5 +60,15 @@ def delete_model_config(config_id: str, db: Session = Depends(get_db)):
     mc = db.get(ModelConfig, config_id)
     if not mc:
         raise HTTPException(404, "ModelConfig not found")
+
+    referenced = db.query(PlanVersion).filter(
+        text("json_extract(model_config_snapshot, '$.id') = :id").bindparams(id=config_id)
+    ).first()
+    if referenced:
+        raise HTTPException(
+            409,
+            "Cannot delete this model config because it is used by one or more plan versions."
+        )
+
     db.delete(mc)
     db.commit()

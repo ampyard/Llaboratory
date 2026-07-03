@@ -10,9 +10,8 @@ import {
   Cell,
   PieChart,
   Pie,
-  Legend,
 } from 'recharts';
-import { VIBRANT, colorAt } from '../../theme/chartColors';
+import { VIBRANT } from '../../theme/chartColors';
 
 interface ModelStats {
   calls: number;
@@ -130,8 +129,6 @@ export default function ModelCallsChart({ per_model }: Props) {
   const pieData = useMemo(() => buildPieData(per_model), [per_model]);
 
   if (barData.length === 0) return null;
-
-  const totalCalls = barData.reduce((sum, d) => sum + d.calls, 0);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

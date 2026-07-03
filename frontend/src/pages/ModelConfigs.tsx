@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, AlertCircle } from 'lucide-react'
 import { api } from '../api/client'
 import type { ModelConfig } from '../types'
 
@@ -22,6 +22,8 @@ export default function ModelConfigs() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<ModelConfig | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [configToDelete, setConfigToDelete] = useState<ModelConfig | null>(null)
 
   const save = useMutation({
     mutationFn: async () => {
@@ -46,7 +48,19 @@ export default function ModelConfigs() {
 
   const del = useMutation({
     mutationFn: api.modelConfigs.delete,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['model-configs'] }),
+    onSuccess: () => {
+      setDeleteError(null)
+      setConfigToDelete(null)
+      qc.invalidateQueries({ queryKey: ['model-configs'] })
+    },
+    onError: (err: Error) => {
+      setConfigToDelete(null)
+      if (err.message.includes('409')) {
+        setDeleteError('This model config is used by one or more plans and cannot be deleted.')
+      } else {
+        setDeleteError('Failed to delete model config.')
+      }
+    },
   })
 
   function openEdit(mc: ModelConfig) {
@@ -98,7 +112,7 @@ export default function ModelConfigs() {
               <button onClick={() => openEdit(mc)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded">
                 <Pencil className="w-4 h-4" />
               </button>
-              <button onClick={() => { if (confirm('Delete?')) del.mutate(mc.id) }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
+              <button onClick={() => setConfigToDelete(mc)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
@@ -144,6 +158,58 @@ export default function ModelConfigs() {
                 <Check className="w-4 h-4" /> {save.isPending ? 'Saving…' : 'Save'}
               </button>
               <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {configToDelete && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Delete Model Config</h2>
+              <button onClick={() => setConfigToDelete(null)}><X className="w-5 h-5 text-gray-400" /></button>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete <span className="font-medium text-gray-900">{configToDelete.name}</span>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfigToDelete(null)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => del.mutate(configToDelete.id)}
+                disabled={del.isPending}
+                className="flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" /> {del.isPending ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteError && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-red-50 border border-red-100 rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-full">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-red-800">Cannot Delete</h2>
+              <button onClick={() => setDeleteError(null)} className="ml-auto"><X className="w-5 h-5 text-red-400 hover:text-red-600" /></button>
+            </div>
+            <p className="text-sm text-red-700 mb-6">{deleteError}</p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setDeleteError(null)}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
+              >
+                OK
+              </button>
             </div>
           </div>
         </div>

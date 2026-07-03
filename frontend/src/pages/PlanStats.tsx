@@ -78,6 +78,12 @@ export default function PlanStats() {
     enabled: !!targetVersion,
   })
 
+  const { data: batch } = useQuery({
+    queryKey: ['run-batches', batchIdParam],
+    queryFn: () => api.runBatches.get(batchIdParam!),
+    enabled: !!batchIdParam,
+  })
+
   return (
     <div className="p-6 max-w-5xl">
       {/* Breadcrumb */}
@@ -104,7 +110,18 @@ export default function PlanStats() {
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">
             {batchIdParam
-              ? `Interactive results from this batch (${analysis?.session_count ?? 0} session(s))`
+              ? (
+                <>
+                  Interactive results from{' '}
+                  <Link
+                    to={`/plans/${planId}/runs/${batchIdParam}`}
+                    className="text-indigo-500 hover:text-indigo-700 hover:underline"
+                  >
+                    {batch?.name || 'this batch'}
+                  </Link>
+                  {` (${analysis?.session_count ?? 0} session(s))`}
+                </>
+              )
               : `Interactive results from all ${analysis?.session_count ?? 0} session(s)`}
             {batchIdParam && (
               <>

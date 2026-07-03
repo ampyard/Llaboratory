@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
+import Dashboard from './pages/Dashboard'
 import ToolLibrary from './pages/ToolLibrary'
 import ToolDetail from './pages/ToolDetail'
 import ToolBuilder from './pages/ToolBuilder'
@@ -20,7 +21,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/tools" replace />} />
+          <Route index element={<Dashboard />} />
           <Route path="tools" element={<ToolLibrary />} />
           <Route path="tools/new" element={<ToolBuilder />} />
           <Route path="tools/:toolId" element={<ToolDetail />} />

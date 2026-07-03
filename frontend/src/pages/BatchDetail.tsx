@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, StopCircle, BarChart2 } from 'lucide-react'
+import { ArrowLeft, StopCircle, BarChart2, Loader2 } from 'lucide-react'
 import { api } from '../api/client'
 import StatusBadge from '../components/StatusBadge'
 
@@ -128,12 +128,12 @@ export default function BatchDetail() {
                     to={`/sessions/${s.id}`}
                     className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
                       isRunning
-                        ? 'bg-blue-50 ring-1 ring-blue-300 hover:bg-blue-100'
+                        ? 'bg-blue-50 ring-1 ring-blue-300 hover:bg-blue-100 animate-glow-ring'
                         : 'hover:bg-gray-50'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {isRunning && <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse shrink-0" />}
+                      {isRunning && <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin shrink-0" />}
                       <span className="text-gray-600">#{s.batch_index + 1}</span>
                       <StatusBadge status={s.status} />
                       {s.termination_reason && (

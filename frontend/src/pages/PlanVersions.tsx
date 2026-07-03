@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, History } from 'lucide-react'
+import { ArrowLeft, BarChart2, ChevronDown, ChevronRight } from 'lucide-react'
 import { api } from '../api/client'
-import StatusBadge from '../components/StatusBadge'
 import RunSplitButton from '../components/RunSplitButton'
 import type { PlanVersion } from '../types'
 
@@ -62,14 +61,6 @@ function VersionCard({
   const qc = useQueryClient()
   const navigate = useNavigate()
 
-  const { data: batches = [] } = useQuery({
-    queryKey: ['run-batches', 'by-version', version.id],
-    queryFn: () => api.runBatches.list(version.id),
-    enabled: expanded,
-    refetchInterval: (query) =>
-      query.state.data?.some(b => b.status === 'pending' || b.status === 'running') ? 2000 : false,
-  })
-
   async function runOnce() {
     const session = await api.sessions.create(version.id)
     await api.sessions.run(session.id)
@@ -80,7 +71,6 @@ function VersionCard({
   async function runBatch(name: string, repetitions: number) {
     const batch = await api.runBatches.create(version.id, repetitions, name)
     qc.invalidateQueries({ queryKey: ['sessions'] })
-    qc.invalidateQueries({ queryKey: ['run-batches', 'by-version', version.id] })
     navigate(`/plans/${planId}/runs/${batch.id}`)
   }
 
@@ -185,36 +175,6 @@ function VersionCard({
               </div>
             </div>
           )}
-
-          <div>
-            <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
-              <History className="w-3.5 h-3.5" /> Runs ({batches.length})
-            </p>
-            {batches.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">No batch runs yet.</p>
-            ) : (
-              <div className="space-y-1">
-                {batches.map(b => (
-                  <Link
-                    key={b.id}
-                    to={`/plans/${planId}/runs/${b.id}`}
-                    className="flex items-center justify-between px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs hover:border-indigo-300 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={b.status} />
-                      <span className="text-gray-700 font-medium">{b.name}</span>
-                      <span className="text-gray-400">· {b.requested_repetitions} repetition(s)</span>
-                    </div>
-                    <span className="text-gray-400">
-                      {new Intl.DateTimeFormat('en-US', {
-                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                      }).format(new Date(b.created_at))}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
 
           <div>
             <p className="text-xs font-medium text-gray-500 mb-2">Model</p>

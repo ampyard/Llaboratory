@@ -1,6 +1,6 @@
 import type {
   Tool, ToolVersion, ModelConfig, Plan, PlanVersion,
-  Session, SessionDetail, Event,
+  Session, SessionDetail, Event, RunBatch, RunBatchProgress,
 } from '../types'
 
 const BASE = '/api'
@@ -69,8 +69,18 @@ export const api = {
     metrics: (id: string) => req<Record<string, unknown>>(`/sessions/${id}/metrics`),
   },
 
+  runBatches: {
+    list: (plan_version_id?: string) =>
+      req<RunBatch[]>(`/run-batches${plan_version_id ? `?plan_version_id=${plan_version_id}` : ''}`),
+    create: (plan_version_id: string, repetitions?: number, name?: string) =>
+      req<RunBatch>('/run-batches', { method: 'POST', body: JSON.stringify({ plan_version_id, repetitions, name }) }),
+    get: (id: string) => req<RunBatchProgress>(`/run-batches/${id}`),
+    abort: (id: string) => req<RunBatch>(`/run-batches/${id}/abort`, { method: 'POST' }),
+  },
+
   analysis: {
-    planVersion: (id: string) => req<Record<string, unknown>>(`/analysis/plan-version/${id}`),
+    planVersion: (id: string, batchId?: string) =>
+      req<Record<string, unknown>>(`/analysis/plan-version/${id}${batchId ? `?batch_id=${batchId}` : ''}`),
     tool: (id: string) => req<Record<string, unknown>>(`/analysis/tool/${id}`),
     exportCsvUrl: (id: string) => `${BASE}/analysis/plan-version/${id}/export.csv`,
     reportUrl: (id: string) => `${BASE}/analysis/plan-version/${id}/report.md`,

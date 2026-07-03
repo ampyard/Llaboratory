@@ -106,6 +106,24 @@ class PlanVersion(Base):
     sessions: Mapped[list["Session"]] = relationship(back_populates="plan_version", cascade="all, delete-orphan")
 
 
+class RunBatch(Base):
+    __tablename__ = "run_batches"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    plan_version_id: Mapped[str] = mapped_column(
+        String, ForeignKey("plan_versions.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String, nullable=False, default="")
+    requested_repetitions: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    status: Mapped[str] = mapped_column(String, default="pending")  # pending|running|completed|aborted|errored
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    plan_version: Mapped["PlanVersion"] = relationship()
+    sessions: Mapped[list["Session"]] = relationship(back_populates="batch", order_by="Session.batch_index")
+
+
 class Session(Base):
     __tablename__ = "sessions"
 
@@ -113,6 +131,10 @@ class Session(Base):
     plan_version_id: Mapped[str] = mapped_column(
         String, ForeignKey("plan_versions.id", ondelete="CASCADE"), nullable=False
     )
+    batch_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("run_batches.id", ondelete="CASCADE"), nullable=True
+    )
+    batch_index: Mapped[int] = mapped_column(Integer, default=0)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String, default="pending")
@@ -121,6 +143,7 @@ class Session(Base):
     totals: Mapped[str] = mapped_column(Text, default="{}")  # JSON summary
 
     plan_version: Mapped["PlanVersion"] = relationship(back_populates="sessions")
+    batch: Mapped["RunBatch | None"] = relationship(back_populates="sessions")
     events: Mapped[list["Event"]] = relationship(
         back_populates="session", order_by="Event.sequence_no", cascade="all, delete-orphan"
     )

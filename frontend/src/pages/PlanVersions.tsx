@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
-import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Play, BarChart2, ChevronDown, ChevronRight } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, History } from 'lucide-react'
 import { api } from '../api/client'
+import StatusBadge from '../components/StatusBadge'
+import RunSplitButton from '../components/RunSplitButton'
 import type { PlanVersion } from '../types'
 
 export default function PlanVersions() {
@@ -58,18 +60,29 @@ function VersionCard({
 }) {
   const [expanded, setExpanded] = useState(isLatest)
   const qc = useQueryClient()
+  const navigate = useNavigate()
 
-  const runMut = useMutation({
-    mutationFn: async () => {
-      const session = await api.sessions.create(version.id)
-      await api.sessions.run(session.id)
-      qc.invalidateQueries({ queryKey: ['sessions'] })
-      return session
-    },
-    onSuccess: (session) => {
-      window.location.href = `/sessions/${session.id}`
-    },
+  const { data: batches = [] } = useQuery({
+    queryKey: ['run-batches', 'by-version', version.id],
+    queryFn: () => api.runBatches.list(version.id),
+    enabled: expanded,
+    refetchInterval: (query) =>
+      query.state.data?.some(b => b.status === 'pending' || b.status === 'running') ? 2000 : false,
   })
+
+  async function runOnce() {
+    const session = await api.sessions.create(version.id)
+    await api.sessions.run(session.id)
+    qc.invalidateQueries({ queryKey: ['sessions'] })
+    navigate(`/sessions/${session.id}`)
+  }
+
+  async function runBatch(name: string, repetitions: number) {
+    const batch = await api.runBatches.create(version.id, repetitions, name)
+    qc.invalidateQueries({ queryKey: ['sessions'] })
+    qc.invalidateQueries({ queryKey: ['run-batches', 'by-version', version.id] })
+    navigate(`/plans/${planId}/runs/${batch.id}`)
+  }
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -104,13 +117,11 @@ function VersionCard({
           className="flex items-center gap-2 shrink-0 ml-4"
           onClick={e => e.stopPropagation()}
         >
-          <button
-            onClick={() => runMut.mutate()}
-            disabled={runMut.isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
-          >
-            <Play className="w-3.5 h-3.5" /> Run
-          </button>
+          <RunSplitButton
+            onRunOnce={runOnce}
+            onRunBatch={runBatch}
+            defaultRepetitions={version.run_settings.repetitions}
+          />
           <Link
             to={`/plans/${planId}/stats?versionId=${version.id}`}
             className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
@@ -174,6 +185,36 @@ function VersionCard({
               </div>
             </div>
           )}
+
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5" /> Runs ({batches.length})
+            </p>
+            {batches.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">No batch runs yet.</p>
+            ) : (
+              <div className="space-y-1">
+                {batches.map(b => (
+                  <Link
+                    key={b.id}
+                    to={`/plans/${planId}/runs/${b.id}`}
+                    className="flex items-center justify-between px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs hover:border-indigo-300 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={b.status} />
+                      <span className="text-gray-700 font-medium">{b.name}</span>
+                      <span className="text-gray-400">· {b.requested_repetitions} repetition(s)</span>
+                    </div>
+                    <span className="text-gray-400">
+                      {new Intl.DateTimeFormat('en-US', {
+                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                      }).format(new Date(b.created_at))}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div>
             <p className="text-xs font-medium text-gray-500 mb-2">Model</p>

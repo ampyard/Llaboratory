@@ -25,6 +25,7 @@ export default function PlanBuilder() {
   const [selectedToolVersionIds, setSelectedToolVersionIds] = useState<string[]>([])
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful assistant.')
   const [userPrompt, setUserPrompt] = useState('')
+  const [repetitions, setRepetitions] = useState('1')
   const [maxTurns, setMaxTurns] = useState('20')
   const [maxToolCalls, setMaxToolCalls] = useState('50')
   const [saving, setSaving] = useState(false)
@@ -43,6 +44,7 @@ export default function PlanBuilder() {
         setSelectedToolVersionIds(latest.tool_versions.map(tv => tv.id))
         setSystemPrompt(latest.system_prompt)
         setUserPrompt(latest.user_prompt)
+        setRepetitions(String(latest.run_settings.repetitions))
         setMaxTurns(String(latest.run_settings.max_turns))
         setMaxToolCalls(String(latest.run_settings.max_tool_calls))
       }
@@ -59,7 +61,7 @@ export default function PlanBuilder() {
       system_prompt: systemPrompt,
       user_prompt: userPrompt,
       run_settings: {
-        repetitions: 1,
+        repetitions: parseInt(repetitions) || 1,
         tool_order_strategy: 'fixed',
         max_turns: parseInt(maxTurns) || 20,
         max_tool_calls: parseInt(maxToolCalls) || 50,
@@ -275,7 +277,10 @@ export default function PlanBuilder() {
 
       <section className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">Run Settings</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Repetitions">
+            <input type="number" min="1" max="1000" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" value={repetitions} onChange={e => setRepetitions(e.target.value)} />
+          </Field>
           <Field label="Max turns">
             <input type="number" min="1" max="100" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" value={maxTurns} onChange={e => setMaxTurns(e.target.value)} />
           </Field>
@@ -291,7 +296,7 @@ export default function PlanBuilder() {
           disabled={running || saving || !planName || !selectedModelConfigId || selectedModelMissing}
           className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
         >
-          <Play className="w-4 h-4" /> {running ? 'Launching…' : 'Save & Run'}
+          <Play className="w-4 h-4" /> {running ? 'Launching…' : 'Save & Run Once'}
         </button>
         <button
           onClick={handleSave}

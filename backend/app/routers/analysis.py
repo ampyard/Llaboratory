@@ -70,14 +70,16 @@ def _session_metrics(session: Session) -> dict:
 
 
 @router.get("/plan-version/{plan_version_id}")
-def aggregate_plan_version(plan_version_id: str, db: DBSession = Depends(get_db)):
+def aggregate_plan_version(plan_version_id: str, batch_id: str | None = None, db: DBSession = Depends(get_db)):
     pv = db.get(PlanVersion, plan_version_id)
     if not pv:
         raise HTTPException(404, "PlanVersion not found")
 
     sessions = pv.sessions
+    if batch_id:
+        sessions = [s for s in sessions if s.batch_id == batch_id]
     if not sessions:
-        return {"plan_version_id": plan_version_id, "session_count": 0, "metrics": []}
+        return {"plan_version_id": plan_version_id, "batch_id": batch_id, "session_count": 0, "metrics": []}
 
     per_session = [_session_metrics(s) for s in sessions]
     completed = [m for m in per_session if m["status"] == "completed"]
@@ -100,6 +102,7 @@ def aggregate_plan_version(plan_version_id: str, db: DBSession = Depends(get_db)
 
     return {
         "plan_version_id": plan_version_id,
+        "batch_id": batch_id,
         "session_count": n,
         "completed": len(completed),
         "errored": len(errored),
@@ -115,12 +118,15 @@ def aggregate_plan_version(plan_version_id: str, db: DBSession = Depends(get_db)
 
 
 @router.get("/plan-version/{plan_version_id}/export.csv")
-def export_csv(plan_version_id: str, db: DBSession = Depends(get_db)):
+def export_csv(plan_version_id: str, batch_id: str | None = None, db: DBSession = Depends(get_db)):
     pv = db.get(PlanVersion, plan_version_id)
     if not pv:
         raise HTTPException(404, "PlanVersion not found")
 
-    per_session = [_session_metrics(s) for s in pv.sessions]
+    sessions = pv.sessions
+    if batch_id:
+        sessions = [s for s in sessions if s.batch_id == batch_id]
+    per_session = [_session_metrics(s) for s in sessions]
     if not per_session:
         return StreamingResponse(io.StringIO("no data"), media_type="text/csv")
 
@@ -144,7 +150,7 @@ def export_csv(plan_version_id: str, db: DBSession = Depends(get_db)):
 
 
 @router.get("/plan-version/{plan_version_id}/report.md", response_class=PlainTextResponse)
-def export_report(plan_version_id: str, download: bool = False, db: DBSession = Depends(get_db)):
+def export_report(plan_version_id: str, download: bool = False, batch_id: str | None = None, db: DBSession = Depends(get_db)):
     pv = db.get(PlanVersion, plan_version_id)
     if not pv:
         raise HTTPException(404, "PlanVersion not found")
@@ -154,6 +160,8 @@ def export_report(plan_version_id: str, download: bool = False, db: DBSession = 
     run_settings = json.loads(pv.run_settings)
 
     sessions = pv.sessions
+    if batch_id:
+        sessions = [s for s in sessions if s.batch_id == batch_id]
     per_session = [_session_metrics(s) for s in sessions]
 
     n = len(per_session)

@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { Plus, Play, Trash2, Pencil, BarChart2, Copy, History } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Plus, Trash2, Pencil, BarChart2, Copy, History } from 'lucide-react'
 import { api } from '../api/client'
+import RunSplitButton from '../components/RunSplitButton'
 import type { Plan } from '../types'
 
 export default function Plans() {
@@ -42,17 +43,25 @@ export default function Plans() {
 function PlanCard({ plan, onDelete }: { plan: Plan; onDelete: () => void }) {
   const latest = plan.versions[plan.versions.length - 1]
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const cloneMut = useMutation({
     mutationFn: () => api.plans.clone(plan.id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['plans'] }),
   })
 
-  async function runSession() {
+  async function runOnce() {
     if (!latest) return
     const session = await api.sessions.create(latest.id)
     await api.sessions.run(session.id)
     qc.invalidateQueries({ queryKey: ['sessions'] })
-    window.location.href = `/sessions/${session.id}`
+    navigate(`/sessions/${session.id}`)
+  }
+
+  async function runBatch(name: string, repetitions: number) {
+    if (!latest) return
+    const batch = await api.runBatches.create(latest.id, repetitions, name)
+    qc.invalidateQueries({ queryKey: ['sessions'] })
+    navigate(`/plans/${plan.id}/runs/${batch.id}`)
   }
 
   return (
@@ -76,13 +85,12 @@ function PlanCard({ plan, onDelete }: { plan: Plan; onDelete: () => void }) {
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={runSession}
+        <RunSplitButton
+          onRunOnce={runOnce}
+          onRunBatch={runBatch}
+          defaultRepetitions={latest?.run_settings.repetitions ?? 1}
           disabled={!latest}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
-        >
-          <Play className="w-3.5 h-3.5" /> Run
-        </button>
+        />
         <Link
           to={`/plans/${plan.id}/stats`}
           className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"

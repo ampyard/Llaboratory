@@ -30,6 +30,9 @@ export default function PlanBuilder() {
   const [saving, setSaving] = useState(false)
   const [running, setRunning] = useState(false)
 
+  const selectedModelConfig = modelConfigs.find(mc => mc.id === selectedModelConfigId)
+  const selectedModelMissing = !!selectedModelConfigId && !selectedModelConfig
+
   useEffect(() => {
     if (plan) {
       setPlanName(plan.name)
@@ -171,15 +174,27 @@ export default function PlanBuilder() {
         {modelConfigs.length === 0 ? (
           <p className="text-sm text-amber-600">No model configs yet. <a href="/models" className="underline">Create one first.</a></p>
         ) : (
-          <select
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
-            value={selectedModelConfigId}
-            onChange={e => setSelectedModelConfigId(e.target.value)}
-          >
-            {modelConfigs.map(mc => (
-              <option key={mc.id} value={mc.id}>{mc.name} — {mc.model_snapshot}</option>
-            ))}
-          </select>
+          <>
+            {selectedModelMissing && (
+              <p className="text-sm text-amber-600 mb-2">
+                The model config originally used by this plan has been deleted. Select a new one before saving.
+              </p>
+            )}
+            <select
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+              value={selectedModelConfigId}
+              onChange={e => setSelectedModelConfigId(e.target.value)}
+            >
+              {selectedModelMissing && (
+                <option value={selectedModelConfigId} disabled>
+                  Missing: {plan?.versions[plan.versions.length - 1]?.model_config_snapshot.name ?? 'Deleted config'}
+                </option>
+              )}
+              {modelConfigs.map(mc => (
+                <option key={mc.id} value={mc.id}>{mc.name} — {mc.model_snapshot}</option>
+              ))}
+            </select>
+          </>
         )}
       </section>
 
@@ -273,14 +288,14 @@ export default function PlanBuilder() {
       <div className="flex gap-3">
         <button
           onClick={handleSaveAndRun}
-          disabled={running || saving || !planName || !selectedModelConfigId}
+          disabled={running || saving || !planName || !selectedModelConfigId || selectedModelMissing}
           className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
         >
           <Play className="w-4 h-4" /> {running ? 'Launching…' : 'Save & Run'}
         </button>
         <button
           onClick={handleSave}
-          disabled={saving || running || !planName || !selectedModelConfigId}
+          disabled={saving || running || !planName || !selectedModelConfigId || selectedModelMissing}
           className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
         >
           {saving ? 'Saving…' : 'Save Plan'}

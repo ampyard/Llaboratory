@@ -194,3 +194,23 @@ def test_update_plan_metadata(client):
     # Try non-existent plan
     r = client.patch("/api/plans/nonexistent-id", json={"name": "New Name"})
     assert r.status_code == 404
+
+
+def test_delete_model_config_blocked_when_used_by_plan(client):
+    tool = _make_tool(client)
+    mc = _make_model_config(client)
+    plan = _make_plan(client, tool["versions"][0]["id"], mc["id"]).json()
+
+    r = client.delete(f"/api/model-configs/{mc['id']}")
+    assert r.status_code == 409
+
+    # Plan and model config should still exist
+    assert client.get(f"/api/plans/{plan['id']}").status_code == 200
+    assert client.get(f"/api/model-configs/{mc['id']}").status_code == 200
+
+
+def test_delete_model_config_allowed_when_unused(client):
+    mc = _make_model_config(client)
+    r = client.delete(f"/api/model-configs/{mc['id']}")
+    assert r.status_code == 204
+    assert client.get(f"/api/model-configs/{mc['id']}").status_code == 404

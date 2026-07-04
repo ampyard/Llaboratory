@@ -48,9 +48,24 @@
         cp .env.example .env        <span class="comment"># then edit .env with your API keys</span><br />
         docker compose up --build
       </div>
-      <p><strong>Important:</strong> Set at least one API key in <code>.env</code> <em>before</em> running <code>docker compose up</code>. The backend reads keys from the environment at startup — sessions will fail fast if a referenced variable is unset.</p>
+      <div class="callout callout-warn">
+        <p><strong>Important:</strong> Set at least one API key in <code>.env</code> <em>before</em> running <code>docker compose up</code>. The backend reads keys from the environment at startup — sessions will fail fast if a referenced variable is unset.</p>
+      </div>
       <p>Open <a href="http://localhost:5173">http://localhost:5173</a> for the UI. The frontend proxies API calls to the backend container on port <code>8000</code>.</p>
-      <p>While a session is running, the event timeline shows live reasoning and text deltas. After a run finishes, open the plan stats view to review aggregates, export CSV, or download a markdown findings report for that plan version.</p>
+
+      <h2>First run: the onboarding checklist</h2>
+      <p>A brand-new instance (no plans yet) shows a <strong>Getting Started</strong> checklist instead of an empty Tool Library. It walks you through the three things you need before your first experiment:</p>
+      <ol>
+        <li>Create a tool (or click <strong>Load samples</strong> to seed 9 ready-made whimsical tools — no setup required)</li>
+        <li>Configure a model — point at OpenAI, OpenRouter, or a local server like LM Studio / Ollama</li>
+        <li>Build and run a plan</li>
+      </ol>
+      <p>The fastest path to a first result is <strong>Load samples → Configure a model → Create plan → Run</strong>. The checklist disappears from the sidebar once you have at least one plan.</p>
+      <img src="/screenshots/01-onboarding.png" alt="Llaboratory Getting Started onboarding checklist" />
+
+      <h2>Running an experiment</h2>
+      <p>While a session is running, the event timeline shows live reasoning, text, and tool calls as they stream in. After a run finishes, open the plan stats view to review aggregates, export CSV, or download a markdown findings report for that plan version. Need more than one data point? Use <strong>Run in batch…</strong> to fire N repetitions of the same plan version and track their progress from the <a href="/docs/workflow.html#batch-runs">Batch Runs</a> page.</p>
+      <img src="/screenshots/hero-session.png" alt="Live session view showing a tool call and its result" />
 
       <h2>Manual setup</h2>
 
@@ -81,6 +96,9 @@
         <span class="comment"># or any OpenAI-compatible provider</span>
       </div>
       <p>API keys are read from environment variables at session start. They are never stored in the database or export bundles.</p>
+
+      <h2>Backing up &amp; resetting your data</h2>
+      <p>Everything lives in one SQLite file, but you don't need to touch it directly. The <strong>Export / Import</strong> page bundles your tools, model configs, and plans (optionally with their sessions) into a downloadable ZIP — handy before upgrading, moving machines, or sharing a reproducible setup with a collaborator. <strong>Factory Reset</strong> wipes all user-created data back to a clean slate. See <a href="/docs/workflow.html#data-management">Data Management</a> for details.</p>
 
       <h2>Running tests</h2>
       <h3>Backend</h3>

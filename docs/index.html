@@ -34,7 +34,7 @@
     <h1>Study how LLMs <span>choose tools</span></h1>
     <p>
       A self-hostable, open-source harness for researching LLM tool-calling behavior.
-      Design fake tools, compose testing plans, and analyze model decisions.
+      Design fake tools, wire in any model, run one session or a thousand, and see exactly what it picked and why.
     </p>
     <div class="hero-btns">      
       <a href="/docs/quickstart.html" class="btn btn-primary">
@@ -74,7 +74,7 @@
           <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
         <h3>Run &amp; Watch Live</h3>
-        <p>Execute sessions with real-time streaming. Watch model reasoning, text, and tool calls arrive incrementally. Manual tools let you interactively shape the conversation.</p>
+        <p>Execute sessions with real-time streaming. Watch model reasoning, text, and tool-call arguments arrive incrementally, turn by turn, until the agent loop terminates.</p>
       </div>
       <div class="feature-card">
         <div class="icon">
@@ -83,24 +83,44 @@
         <h3>Analyze Results</h3>
         <p>Per-session metrics, within-plan aggregation, and cross-model comparison. Tool-selection rates, call-order patterns, termination reasons, CSV export, and downloadable markdown findings reports — all available.</p>
       </div>
-
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </div>
+        <h3>Batch Runs</h3>
+        <p>Fire N repetitions of a plan version in one click and watch them run in the background, up to 5 at a time. Stop chasing single-session anecdotes — get a real sample size.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M4 4v16h16"/><path d="M4 20l6-6 4 4 6-8"/></svg>
+        </div>
+        <h3>Zero-Setup Onboarding</h3>
+        <p>A first-run checklist gets you to a working experiment in three clicks, with 9 built-in whimsical sample tools ready to load instantly.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        </div>
+        <h3>Portable Data</h3>
+        <p>Export your tools, models, and plans to a single ZIP and import them anywhere. Factory-reset an instance to a clean slate whenever you need one.</p>
+      </div>
     </div>
   </section>
 
   <section class="section">
     <h2 class="section-title">Workflow</h2>
-    <p class="section-subtitle">From designing an experiment to publishing findings in four steps.</p>
+    <p class="section-subtitle">From a blank instance to published findings, in a handful of steps.</p>
     <div class="steps">
       <div class="step">
         <div>
-          <h3>1. Build your tool library</h3>
-          <p>Create fake tools with static payloads, dynamic Python responses, or manual prompting. Each save creates an immutable version.</p>
+          <h3>1. Load your first tools</h3>
+          <p>Follow the Getting Started checklist and load 9 built-in sample tools instantly, or build your own with static payloads or dynamic Python responses. Each save creates an immutable version.</p>
         </div>
       </div>
       <div class="step">
         <div>
           <h3>2. Configure models</h3>
-          <p>Point to any OpenAI-compatible endpoint (OpenRouter, LM Studio, etc.). Set the model snapshot, params, and API key via environment variables.</p>
+          <p>Point to any OpenAI-compatible endpoint — OpenAI, OpenRouter, LM Studio, Ollama, or anything else that speaks the chat-completions API. Set the model snapshot, params, and API key via environment variables.</p>
         </div>
       </div>
       <div class="step">
@@ -111,8 +131,14 @@
       </div>
       <div class="step">
         <div>
-          <h3>4. Run &amp; analyze</h3>
-          <p>Launch sessions with live streaming. Inspect every tool call and model response. Aggregate across runs and compare models. Export data for write-ups or download a markdown findings report for each plan version.</p>
+          <h3>4. Run once, or run a batch</h3>
+          <p>Launch a single session with live streaming, or fire N repetitions in the background with Batch Runs. Inspect every tool call and model response as they arrive.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>5. Analyze &amp; share</h3>
+          <p>Aggregate across runs, compare models, export CSV, or download a markdown findings report. Export your whole setup as a ZIP to hand off to a collaborator.</p>
         </div>
       </div>
     </div>
@@ -121,8 +147,8 @@
   <section class="screenshot-section">
     <div class="section">
       <h2 class="section-title">See it in action</h2>
-      <p class="section-subtitle" style="margin: 0 auto 40px;">Live session view showing model conversation and tool calls.</p>
-      <img src="/screenshot.png" alt="Llaboratory screenshot showing the tool-calling session UI" />
+      <p class="section-subtitle" style="margin: 0 auto 40px;">Live session view — model reasoning, a tool call, and its result, as they stream in.</p>
+      <img src="/screenshot.png" alt="Llaboratory screenshot showing a live tool-calling session" />
     </div>
   </section>
 

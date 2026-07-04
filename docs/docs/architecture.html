@@ -84,15 +84,24 @@
         <li><strong>ModelConfig</strong> — Authoring template for provider connection details. Copied <em>by value</em> into plan versions.</li>
         <li><strong>Plan / PlanVersion</strong> — Composable experiment definition. Pins tool versions, freezes model config, prompts, and run settings.</li>
         <li><strong>Session</strong> — Single execution of a PlanVersion. Records status, timing, totals, and termination reason.</li>
-        <li><strong>Event</strong> — Structured log entry. Types include <code>model_request</code>, <code>model_response</code>, <code>tool_call</code>, <code>tool_result</code>, <code>tool_error</code>, <code>manual_prompt</code>, <code>manual_response</code>, <code>hallucinated_tool_call</code>, and more.</li>
-        <li><strong>ManualResponseRecord</strong> — Captured human responses keyed by <code>(tool_version, args_hash, occurrence_index)</code> for deterministic replay.</li>
+        <li><strong>RunBatch</strong> — Groups N sessions created from one <strong>Run in batch…</strong> request against a single PlanVersion. Tracks aggregate status and supports abort.</li>
+        <li><strong>Event</strong> — Structured log entry. Types include <code>session_start</code>, <code>model_request</code>, <code>model_response</code>, <code>tool_call</code>, <code>tool_result</code>, <code>tool_error</code>, <code>hallucinated_tool_call</code>, <code>loop_guard_triggered</code>, and <code>session_end</code>.</li>
+      </ul>
+
+      <h3>Data lifecycle endpoints</h3>
+      <ul>
+        <li><code>POST /export</code> — Bundle selected (or all) tools, model configs, and plans — optionally with run history — into a ZIP.</li>
+        <li><code>POST /import/check</code> / <code>POST /import</code> — Dry-run conflict check followed by a committed import from a previously exported ZIP, with per-item rename support.</li>
+        <li><code>POST /factory-reset</code> — Irreversibly deletes all tools, model configs, plans, sessions, and batch runs.</li>
+        <li><code>GET /seed/preview</code> / <code>POST /seed</code> — Preview and load the 9 built-in sample tools, used by the onboarding checklist.</li>
+        <li><code>GET /run-batches</code>, <code>POST /run-batches</code>, <code>GET /run-batches/{id}</code>, <code>POST /run-batches/{id}/abort</code> — Create, list, track, and abort batch runs.</li>
       </ul>
 
       <h2>Frontend</h2>
       <p>The frontend is a single-page React application:</p>
       <ul>
         <li><strong>Stack:</strong> React 18, TypeScript, React Router v6, TanStack React Query, Tailwind CSS.</li>
-        <li><strong>Pages:</strong> Tool Library, Tool Builder, Model Configs, Plans, Plan Builder, Sessions, Session Detail, Plan Stats, and Plan Report.</li>
+        <li><strong>Pages:</strong> Dashboard (onboarding), Tool Library, Tool Builder, Tool Detail/Stats, Model Configs, Plans, Plan Builder, Plan Versions, Plan Stats, Plan Report, Sessions, Session Detail, Batch Runs, Batch Detail, Data Transfer (export/import), and Factory Reset.</li>
         <li><strong>Live streaming:</strong> Sessions stream events via Server-Sent Events. The UI renders model reasoning, text, and tool-call arguments incrementally as they arrive.</li>
         <li><strong>API communication:</strong> All data fetching uses TanStack React Query for caching, deduplication, and optimistic updates.</li>
       </ul>

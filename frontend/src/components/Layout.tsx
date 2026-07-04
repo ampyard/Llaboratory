@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Outlet, NavLink } from 'react-router-dom'
 import { LayoutDashboard, Wrench, Server, FlaskConical, Play, Layers, Download, RotateCcw } from 'lucide-react'
 import { api } from '../api/client'
+import pkg from '../../package.json'
 
 const nav = [
   { to: '/tools', label: 'Tool Library', icon: Wrench },
@@ -25,7 +26,10 @@ export default function Layout() {
       <aside className="w-56 bg-white border-r border-gray-200 flex flex-col shrink-0">
         <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2.5">
           <img src="/logo-small.png" alt="Llaboratory" className="h-10 w-auto shrink-0" />
-          <span className="font-bold text-gray-900 text-base tracking-tight">Llaboratory</span>
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <span className="font-bold text-gray-900 text-base tracking-tight truncate">Llaboratory</span>
+            <span className="text-[11px] font-medium text-gray-400 shrink-0">v{pkg.version}</span>
+          </div>
         </div>
         <nav className="flex-1 p-3 space-y-0.5">
           {showOnboarding && (
@@ -65,9 +69,6 @@ export default function Layout() {
             )
           )}
         </nav>
-        <div className="px-4 py-3 border-t border-gray-200">
-          <p className="text-xs text-gray-400">MVP v0.3.0</p>
-        </div>
       </aside>
 
       {/* Main */}

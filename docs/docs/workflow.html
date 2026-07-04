@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Workflow — Llaboratory docs</title>
-  <meta name="description" content="End-to-end workflow: tool library, model configs, plans, sessions, and analysis." />
+  <meta name="description" content="End-to-end workflow: tool library, model configs, plans, sessions, batch runs, analysis, and data management." />
   <link rel="icon" type="image/png" href="/logo-small.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -39,7 +39,11 @@
     </aside>
     <main class="doc-content">
       <h1>Workflow</h1>
-      <p>Llaboratory follows a five-step workflow from experiment design to analysis and reporting.</p>
+      <p>Llaboratory follows a workflow from experiment design to analysis and reporting: build tools, configure a model, assemble a plan, run it once or in batch, then analyze the results.</p>
+
+      <h2>0. Getting Started</h2>
+      <p>A fresh instance shows a <strong>Getting Started</strong> checklist on the home page instead of an empty screen. It tracks three prerequisites — a tool, a model config, and a plan — and links straight to the builder for whichever is missing. If you just want to explore, click <strong>Load samples</strong> to seed the 9 built-in whimsical tools described below without creating anything by hand. The checklist (and its sidebar entry) disappears automatically once a plan exists.</p>
+      <img src="/screenshots/01-onboarding.png" alt="Getting Started onboarding checklist" />
 
       <h2>1. Tool Library</h2>
       <p>The <strong>Tool Library</strong> is where you create and manage fake tools. Each tool consists of:</p>
@@ -48,6 +52,7 @@
         <li>A <strong>parameter schema</strong> defined as JSON Schema. Use the built-in field builder or edit raw JSON.</li>
         <li>A <strong>response mode</strong> with two choices:</li>
       </ul>
+      <img src="/screenshots/02-tool-library.png" alt="Tool Library listing built-in and custom tools" />
 
       <h3>Response modes</h3>
       <ul>
@@ -58,7 +63,7 @@
       <p>Every save creates an <strong>immutable ToolVersion</strong>. Edits always produce a new version; prior versions remain referenceable forever. Plans pin specific versions, so updating a tool never breaks an existing experiment.</p>
 
       <h3>Built-in tools</h3>
-      <p>Llaboratory ships with 10 built-in tools that demonstrate the range of what's possible. Built-in tools are read-only — they cannot be edited or deleted — but you can <strong>clone</strong> them to create your own editable copies. The built-in set includes:</p>
+      <p>Llaboratory ships with 9 built-in tools that demonstrate the range of what's possible — or click <strong>Load samples</strong> from the Getting Started checklist to seed them into a fresh instance. Built-in tools are read-only — they cannot be edited or deleted — but you can <strong>clone</strong> them to create your own editable copies. The built-in set includes:</p>
       <ul>
         <li><strong>read_mood</strong> — Reads the ethereal mood aura of any question or situation.</li>
         <li><strong>pet_butterfly</strong> — Gently attempts to pet a butterfly. Results may vary.</li>
@@ -70,17 +75,19 @@
         <li><strong>gossip_mill</strong> — Returns the juiciest fake gossip about any subject.</li>
         <li><strong>slap_bad_human</strong> — Administers a dramatic, harmless slap to a misbehaving human.</li>
       </ul>
+      <p>Every tool has its own <strong>Stats</strong> view — calls per model, call distribution, error rate, and latency/token usage — so you can see how a single tool performs across every plan that uses it.</p>
+      <img src="/screenshots/14-tool-stats.png" alt="Tool Stats — usage analytics for a single tool across models" />
 
       <h2>2. Model Configs</h2>
-      <p>Model Configs store the connection details for an LLM provider. Configure:</p>
+      <p>Model Configs store the connection details for an LLM provider. All configs speak the OpenAI-compatible chat-completions API, so anything that exposes that surface works — OpenAI, OpenRouter, LM Studio, Ollama, and similar. Configure:</p>
       <ul>
-        <li><strong>Provider kind</strong> — OpenAI-compatible (v1). Works with OpenAI, OpenRouter, LM Studio, and any endpoint exposing the chat completions API.</li>
         <li><strong>Base URL</strong> — The API endpoint.</li>
         <li><strong>Model snapshot</strong> — The exact model identifier (e.g. <code>gpt-4o-2025-05-10</code>). No aliases — pin the exact version.</li>
-        <li><strong>Parameters</strong> — temperature, top_p, seed, max_tokens, tool_choice.</li>
+        <li><strong>Parameters</strong> — temperature and max tokens.</li>
         <li><strong>API key env var</strong> — The <em>name</em> of the environment variable (e.g. <code>OPENAI_API_KEY</code>). The key value itself is never stored.</li>
         <li><strong>Pricing</strong> — Input/output cost per 1k tokens for cost accounting.</li>
       </ul>
+      <img src="/screenshots/04-model-configs.png" alt="Model Configs page" />
 
       <h2>3. Plans</h2>
       <p>A <strong>Plan</strong> assembles everything needed for an experiment:</p>
@@ -88,17 +95,16 @@
         <li>An ordered set of tools (with specific versions).</li>
         <li>A model config (copied <em>by value</em> into the plan version).</li>
         <li>System prompt and user/starting prompt.</li>
-        <li>Run settings: repetitions, tool-order strategy (<code>fixed</code> or <code>randomized_per_session</code>), and agent-loop limits.</li>
+        <li>Run settings: repetitions and agent-loop limits. Tools are offered to the model in a fixed order, which is recorded per session (<code>tool_order_used</code>) for reproducibility.</li>
       </ul>
-      <p>Saving a plan creates an <strong>immutable PlanVersion</strong>. All subsequent sessions are bound to this version. You can create as many plan versions as needed to track prompt tweaks, tool changes, or model parameter variations — each with its own audit trail.</p>
+      <p>Saving a plan creates an <strong>immutable PlanVersion</strong>. All subsequent sessions are bound to this version. You can create as many plan versions as needed to track prompt tweaks, tool changes, or model parameter variations — each with its own audit trail. The <strong>Plan Versions</strong> view lists the full history for a plan so you can compare or re-run an earlier version.</p>
+      <img src="/screenshots/06-plan-builder.png" alt="Plan Builder — assembling tools, model, and prompts into a plan" />
 
       <h2>4. Sessions</h2>
       <p>A <strong>Session</strong> executes one run of a PlanVersion. Launch sessions from the plan detail view. Key behaviors:</p>
       <ul>
         <li><strong>Live streaming</strong> — Watch model reasoning, text, and tool calls arrive incrementally as the provider streams them.</li>
         <li><strong>Agent loop</strong> — The model requests, (optionally) calls tools, results are fed back, and the loop continues until a termination condition fires (max turns, max tool calls, loop guard, timeout, user abort).</li>
-        <li><strong>Manual tools</strong> — Sessions pause at <code>awaiting_manual_input</code> status. Provide a response in the UI; the session resumes automatically.</li>
-
       </ul>
 
       <h3>Termination conditions</h3>
@@ -107,12 +113,22 @@
         <li><code>max_turns</code> — Hit the turn limit (default 20).</li>
         <li><code>max_tool_calls</code> — Hit the tool call limit (default 50).</li>
         <li><code>loop_guard</code> — Same tool + same args 5× in a row.</li>
-        <li><code>timeout</code> — Wall clock exceeded (default 5 min; paused during manual input).</li>
+        <li><code>timeout</code> — Wall clock exceeded (default 5 min).</li>
         <li><code>aborted</code> — User killed the session.</li>
         <li><code>errored</code> — Provider error after retries.</li>
       </ul>
 
-      <h2>5. Analysis</h2>
+      <h2 id="batch-runs">5. Batch Runs</h2>
+      <p>A <strong>Batch Run</strong> fires N repetitions of the same plan version in one click — the fastest way to get a statistically meaningful sample instead of eyeballing a single session. From a plan's detail view, use <strong>Run in batch…</strong> next to the usual <strong>Run Once</strong> button, give the batch a name, and pick a repetition count (1–1000).</p>
+      <ul>
+        <li>Sessions in a batch run sequentially in the background, up to <strong>5 concurrently</strong> (see <a href="/docs/architecture.html">Architecture → Concurrency</a>).</li>
+        <li>The <strong>Batch Runs</strong> page lists every batch across all plans with live status and repetition counts; each batch's detail view shows per-session progress as it completes.</li>
+        <li>A running batch can be <strong>aborted</strong> at any time — in-flight sessions finish or are killed, and remaining repetitions are cancelled.</li>
+        <li>All sessions in a batch feed into the same plan-version stats, so a batch is just a fast way to populate the aggregate metrics described below.</li>
+      </ul>
+      <img src="/screenshots/07-batches.png" alt="Batch Runs page listing repeated-run trials" />
+
+      <h2>6. Analysis</h2>
       <p>Every interaction is logged as structured <strong>Events</strong> in SQLite (WAL mode). The analysis layer computes:</p>
       <ul>
         <li><strong>Per-session metrics</strong> — tools called, call order, turn count, token usage, computed cost, duration, termination reason.</li>
@@ -120,7 +136,20 @@
         <li><strong>Cross-model comparison</strong> — same plan run across different models with comparable metrics.</li>
         <li><strong>Export</strong> — CSV/JSON for external plotting and write-ups, plus downloadable markdown findings reports for each plan version.</li>
       </ul>
-      <p>Failed and aborted sessions are counted explicitly in every rate — a high failure rate can never masquerade as a high "no tool call" rate.</p>
+      <p>Failed and aborted sessions are counted explicitly in every rate — a high failure rate can never masquerade as a high "no tool call" rate. The plan-version <strong>Visualization</strong> view charts session outcomes, cost, tool call flow, and tool reliability at a glance.</p>
+      <img src="/screenshots/12-plan-stats.png" alt="Plan Stats visualization — session outcomes, cost, and tool reliability charts" />
+      <p>From the same view, <strong>Report</strong> generates a self-contained markdown findings report — plan settings, prompts, and session outcome tables — ready to download or paste into a write-up.</p>
+      <img src="/screenshots/13-plan-report.png" alt="Findings Report — generated markdown summary of a plan version's runs" />
+
+      <h2 id="data-management">7. Data Management</h2>
+      <p>The <strong>Export / Import</strong> and <strong>Factory Reset</strong> pages manage the lifecycle of everything you've built:</p>
+      <ul>
+        <li><strong>Export</strong> — Bundle all (or a hand-picked subset) of your tools, model configs, and plans — optionally including their run history — into a single downloadable ZIP. Useful before upgrading, moving to a new machine, or sharing a reproducible experiment setup with a collaborator.</li>
+        <li><strong>Import</strong> — Upload a previously exported ZIP. Llaboratory first checks for naming conflicts with your existing data and lets you rename incoming items before anything is committed, so imports never silently overwrite local work.</li>
+        <li><strong>Factory Reset</strong> — Permanently deletes all tools, model configs, plans, sessions, and batch runs, returning the instance to a clean slate. This cannot be undone — export first if you want to keep a copy.</li>
+      </ul>
+      <img src="/screenshots/08-data-transfer.png" alt="Export / Import page" />
+      <img src="/screenshots/09-factory-reset.png" alt="Factory Reset confirmation page" />
     </main>
   </div>
 

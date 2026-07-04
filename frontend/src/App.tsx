@@ -15,6 +15,8 @@ import Sessions from './pages/Sessions'
 import SessionDetail from './pages/SessionDetail'
 import Batches from './pages/Batches'
 import BatchDetail from './pages/BatchDetail'
+import DataTransfer from './pages/DataTransfer'
+import FactoryReset from './pages/FactoryReset'
 
 export default function App() {
   return (
@@ -38,6 +40,8 @@ export default function App() {
           <Route path="sessions" element={<Sessions />} />
           <Route path="sessions/:sessionId" element={<SessionDetail />} />
           <Route path="batches" element={<Batches />} />
+          <Route path="data-transfer" element={<DataTransfer />} />
+          <Route path="factory-reset" element={<FactoryReset />} />
         </Route>
       </Routes>
     </BrowserRouter>

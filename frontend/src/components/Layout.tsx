@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query'
 import { Outlet, NavLink } from 'react-router-dom'
-import { Wrench, Server, FlaskConical, Play, Layers } from 'lucide-react'
+import { LayoutDashboard, Wrench, Server, FlaskConical, Play, Layers, Download, RotateCcw } from 'lucide-react'
+import { api } from '../api/client'
 
 const nav = [
   { to: '/tools', label: 'Tool Library', icon: Wrench },
@@ -8,9 +10,15 @@ const nav = [
   { divider: true },
   { to: '/sessions', label: 'Sessions', icon: Play },
   { to: '/batches', label: 'Batch Runs', icon: Layers },
+  { divider: true },
+  { to: '/data-transfer', label: 'Export / Import', icon: Download },
+  { to: '/factory-reset', label: 'Factory Reset', icon: RotateCcw },
 ] as const
 
 export default function Layout() {
+  const { data: plans } = useQuery({ queryKey: ['plans'], queryFn: api.plans.list, staleTime: 60_000 })
+  const showOnboarding = !plans || plans.length === 0
+
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
@@ -20,6 +28,22 @@ export default function Layout() {
           <span className="font-bold text-gray-900 text-base tracking-tight">Llaboratory</span>
         </div>
         <nav className="flex-1 p-3 space-y-0.5">
+          {showOnboarding && (
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : 'text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800'
+                }`
+              }
+            >
+              <LayoutDashboard className="w-4 h-4 shrink-0" />
+              Getting Started
+            </NavLink>
+          )}
           {nav.map((item, i) =>
             'divider' in item ? (
               <hr key={i} className="my-2 border-gray-200" />

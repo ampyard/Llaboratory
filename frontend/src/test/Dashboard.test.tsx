@@ -10,6 +10,7 @@ vi.mock('../api/client', () => ({
     tools: { list: vi.fn() },
     modelConfigs: { list: vi.fn() },
     plans: { list: vi.fn() },
+    seed: { preview: vi.fn() },
   },
 }))
 

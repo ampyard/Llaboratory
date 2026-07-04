@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, BarChart2 } from 'lucide-react'
 import { api } from '../api/client'
 import StatusBadge from '../components/StatusBadge'
 import type { RunBatch } from '../types'
@@ -74,19 +74,25 @@ function BatchRow({
       <div className="flex items-center gap-4 text-xs text-gray-400 shrink-0">
         <span>{batch.requested_repetitions} repetition(s)</span>
         {planInfo && (
-          <Link
-            to={`/plans/${planInfo.planId}/stats?versionId=${batch.plan_version_id}&batchId=${batch.id}`}
-            onClick={e => e.stopPropagation()}
-            className="text-xs text-indigo-500 hover:text-indigo-700 hover:underline whitespace-nowrap"
-            title="View plan version"
-          >
+          <span className="text-gray-500 whitespace-nowrap">
             {planInfo.planName} <span className="text-indigo-400">v{planInfo.versionNumber}</span>
-          </Link>
+          </span>
         )}
       </div>
-      <Link to={`/plans/${planInfo?.planId ?? ''}/runs/${batch.id}`}>
-        <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
-      </Link>
+      <div className="flex items-center gap-1">
+        {planInfo && (
+          <Link
+            to={`/plans/${planInfo.planId}/stats?versionId=${batch.plan_version_id}&batchId=${batch.id}`}
+            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+            title="Batch stats"
+          >
+            <BarChart2 className="w-4 h-4" />
+          </Link>
+        )}
+        <Link to={`/plans/${planInfo?.planId ?? ''}/runs/${batch.id}`}>
+          <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
+        </Link>
+      </div>
     </div>
   )
 }

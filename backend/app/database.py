@@ -65,9 +65,4 @@ def init_db():
             conn.execute(text("ALTER TABLE run_batches ADD COLUMN name VARCHAR NOT NULL DEFAULT ''"))
             conn.commit()
 
-    from app.seed import seed_tools
-    session = SessionLocal()
-    try:
-        seed_tools(session)
-    finally:
-        session.close()
+    # Seeding is now on-demand via the /api/seed endpoint (triggered from onboarding)

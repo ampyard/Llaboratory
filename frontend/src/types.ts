@@ -138,3 +138,39 @@ export interface SessionDetail extends Session {
   events: Event[]
   plan_version: PlanVersion
 }
+
+// ── Seed Preview ──────────────────────────────────────────────────────────
+
+export interface SeedToolPreview {
+  name: string
+  description: string
+  tags: string[]
+  parameter_schema: Record<string, unknown>
+}
+
+// ── Export / Import ──────────────────────────────────────────────────────────
+
+export interface ExportConflict {
+  type: 'tool' | 'model_config' | 'plan'
+  name: string
+  message: string
+}
+
+export interface ImportCheckResult {
+  has_conflicts: boolean
+  conflicts: ExportConflict[]
+}
+
+export interface ImportResult {
+  success: boolean
+  error?: string
+  conflicts?: ExportConflict[]
+  imported_tools?: number
+  imported_tool_versions?: number
+  imported_model_configs?: number
+  imported_plans?: number
+  imported_plan_versions?: number
+  imported_run_batches?: number
+  imported_sessions?: number
+  imported_events?: number
+}

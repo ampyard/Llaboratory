@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
-from app.routers import analysis, model_configs, plans, run_batches, sessions, tools
+from app.routers import analysis, export_import, model_configs, plans, run_batches, sessions, tools
 
 load_dotenv()
 
@@ -32,6 +32,7 @@ app.include_router(plans.router, prefix="/api")
 app.include_router(sessions.router, prefix="/api")
 app.include_router(run_batches.router, prefix="/api")
 app.include_router(analysis.router, prefix="/api")
+app.include_router(export_import.router, prefix="/api")
 
 
 @app.get("/api/health")

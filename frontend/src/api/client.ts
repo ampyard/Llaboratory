@@ -1,6 +1,7 @@
 import type {
   Tool, ToolVersion, ModelConfig, Plan, PlanVersion,
   Session, SessionDetail, Event, RunBatch, RunBatchProgress,
+  ImportCheckResult, ImportResult, SeedToolPreview,
 } from '../types'
 
 const BASE = '/api'
@@ -86,5 +87,51 @@ export const api = {
     reportUrl: (id: string) => `${BASE}/analysis/plan-version/${id}/report.md`,
     reportDownloadUrl: (id: string) => `${BASE}/analysis/plan-version/${id}/report.md?download=1`,
     fetchReport: (id: string) => fetch(`${BASE}/analysis/plan-version/${id}/report.md`).then(r => r.text()),
+  },
+
+  export: {
+    download: async (body: { tool_ids?: string[]; model_config_ids?: string[]; plan_ids?: string[] }) => {
+      const res = await fetch(`${BASE}/export`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition') || ''
+      const match = disposition.match(/filename="(.+?)"/)
+      a.download = match ? match[1] : 'llaboratory-export.zip'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    },
+  },
+
+  factoryReset: () => req<{ success: boolean }>('/factory-reset', { method: 'POST' }),
+  seed: Object.assign(
+    () => req<{ success: boolean }>('/seed', { method: 'POST' }),
+    { preview: () => req<SeedToolPreview[]>('/seed/preview') },
+  ),
+
+  import: {
+    check: async (file: File): Promise<ImportCheckResult> => {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch(`${BASE}/import/check`, { method: 'POST', body: form })
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
+      return res.json()
+    },
+    run: async (file: File, renameMap: Record<string, Record<string, string>>): Promise<ImportResult> => {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('rename_map', JSON.stringify(renameMap))
+      const res = await fetch(`${BASE}/import`, { method: 'POST', body: form })
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`)
+      return res.json()
+    },
   },
 }

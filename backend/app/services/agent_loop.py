@@ -195,7 +195,7 @@ async def _run(session_id: str, db: DBSession) -> None:
             if tool_defs:
                 raw_request["tools"] = tool_defs
                 raw_request["tool_choice"] = model_params.get("tool_choice", "auto")
-            for k in ("temperature", "top_p", "seed", "max_tokens"):
+            for k in ("temperature", "top_p", "seed", "max_tokens", "reasoning_effort"):
                 if k in model_params:
                     raw_request[k] = model_params[k]
 

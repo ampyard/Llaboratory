@@ -44,7 +44,7 @@ async def stream_completion(
     if tools:
         payload["tools"] = tools
         payload["tool_choice"] = params.pop("tool_choice", "auto")
-    for k in ("temperature", "top_p", "seed", "max_tokens"):
+    for k in ("temperature", "top_p", "seed", "max_tokens", "reasoning_effort"):
         if k in params:
             payload[k] = params[k]
 
@@ -131,11 +131,12 @@ async def assemble_response(
         choice = (chunk.get("choices") or [{}])[0]
         delta = choice.get("delta", {})
 
-        # Reasoning content (some providers)
-        if delta.get("reasoning"):
-            reasoning_buffer += delta["reasoning"]
+        # Reasoning content (some providers send "reasoning", others "reasoning_content")
+        reasoning_delta = delta.get("reasoning") or delta.get("reasoning_content")
+        if reasoning_delta:
+            reasoning_buffer += reasoning_delta
             if stream_callback:
-                await stream_callback("reasoning_delta", delta["reasoning"])
+                await stream_callback("reasoning_delta", reasoning_delta)
 
         # Text content
         if delta.get("content"):

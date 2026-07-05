@@ -7,13 +7,13 @@ import type { ModelConfig } from '../types'
 interface FormState {
   name: string; base_url: string; model_snapshot: string
   api_key_env: string; input_cost_per_1k: string; output_cost_per_1k: string
-  temperature: string; max_tokens: string
+  temperature: string; max_tokens: string; reasoning_effort: string
 }
 
 const EMPTY: FormState = {
   name: '', base_url: 'https://openrouter.ai/api/v1', model_snapshot: '',
   api_key_env: '', input_cost_per_1k: '0', output_cost_per_1k: '0',
-  temperature: '1', max_tokens: '4096',
+  temperature: '1', max_tokens: '4096', reasoning_effort: '',
 }
 
 export default function ModelConfigs() {
@@ -30,6 +30,7 @@ export default function ModelConfigs() {
       const params: Record<string, unknown> = {}
       if (form.temperature) params.temperature = parseFloat(form.temperature)
       if (form.max_tokens) params.max_tokens = parseInt(form.max_tokens)
+      if (form.reasoning_effort) params.reasoning_effort = form.reasoning_effort
       const body = {
         name: form.name, base_url: form.base_url,
         model_snapshot: form.model_snapshot, api_key_env: form.api_key_env,
@@ -72,6 +73,7 @@ export default function ModelConfigs() {
       output_cost_per_1k: String(mc.output_cost_per_1k),
       temperature: String(p.temperature ?? 1),
       max_tokens: String(p.max_tokens ?? 4096),
+      reasoning_effort: String(p.reasoning_effort ?? ''),
     })
     setEditing(mc); setShowForm(true)
   }
@@ -148,6 +150,20 @@ export default function ModelConfigs() {
                   />
                 </div>
               ))}
+              <div>
+                <label htmlFor="reasoning_effort" className="text-xs font-medium text-gray-600 block mb-1">Reasoning effort</label>
+                <select
+                  id="reasoning_effort"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+                  value={form.reasoning_effort}
+                  onChange={e => setForm(f => ({ ...f, reasoning_effort: e.target.value }))}
+                >
+                  <option value="">Let the server choose</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
             </div>
             <div className="flex gap-3 mt-5">
               <button

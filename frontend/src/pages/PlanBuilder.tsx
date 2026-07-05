@@ -27,6 +27,7 @@ export default function PlanBuilder() {
   const [userPrompt, setUserPrompt] = useState('')
   const [maxTurns, setMaxTurns] = useState('20')
   const [maxToolCalls, setMaxToolCalls] = useState('50')
+  const [timeoutSeconds, setTimeoutSeconds] = useState('300')
   const [saving, setSaving] = useState(false)
   const [running, setRunning] = useState(false)
 
@@ -45,6 +46,7 @@ export default function PlanBuilder() {
         setUserPrompt(latest.user_prompt)
         setMaxTurns(String(latest.run_settings.max_turns))
         setMaxToolCalls(String(latest.run_settings.max_tool_calls))
+        setTimeoutSeconds(String(latest.run_settings.timeout_seconds))
       }
     }
     if (!isEdit && modelConfigs.length > 0 && !selectedModelConfigId) {
@@ -62,7 +64,7 @@ export default function PlanBuilder() {
         tool_order_strategy: 'fixed',
         max_turns: parseInt(maxTurns) || 20,
         max_tool_calls: parseInt(maxToolCalls) || 50,
-        timeout_seconds: 300,
+        timeout_seconds: parseInt(timeoutSeconds) || 300,
       },
     }
   }
@@ -280,6 +282,9 @@ export default function PlanBuilder() {
           </Field>
           <Field label="Max tool calls">
             <input type="number" min="1" max="200" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" value={maxToolCalls} onChange={e => setMaxToolCalls(e.target.value)} />
+          </Field>
+          <Field label="Timeout (seconds)">
+            <input type="number" min="1" max="3600" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" value={timeoutSeconds} onChange={e => setTimeoutSeconds(e.target.value)} />
           </Field>
         </div>
       </section>

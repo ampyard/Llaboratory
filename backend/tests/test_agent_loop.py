@@ -504,6 +504,88 @@ async def test_model_request_raw_payload_includes_params(db):
     assert rp["max_tokens"] == 512
 
 
+async def test_model_request_raw_payload_includes_reasoning_effort(db):
+    """reasoning_effort param appears in raw_payload when set."""
+    plan = Plan(name="re-plan")
+    db.add(plan)
+    db.flush()
+
+    mcs_with_re = json.dumps({
+        "base_url": "https://api.example.com/v1",
+        "api_key_env": "FAKE_KEY",
+        "model_snapshot": "test-model",
+        "params": json.dumps({"reasoning_effort": "medium"}),
+        "input_cost_per_1k": 0.0,
+        "output_cost_per_1k": 0.0,
+    })
+    pv = PlanVersion(
+        plan_id=plan.id,
+        version_number=1,
+        model_config_snapshot=mcs_with_re,
+        system_prompt="",
+        user_prompt="Hi",
+        run_settings=_RUN_SETTINGS,
+    )
+    db.add(pv)
+    db.flush()
+    session = Session(plan_version_id=pv.id, status="pending")
+    db.add(session)
+    db.commit()
+
+    captured_response = _no_tool_response()
+
+    with patch("app.services.agent_loop.assemble_response", AsyncMock(return_value=captured_response)):
+        await run_session(session.id, TestingSessionLocal)
+
+    session = db.get(Session, session.id)
+    db.refresh(session)
+    req_event = next(e for e in session.events if e.type == "model_request")
+    payload = json.loads(req_event.payload)
+    rp = payload["raw_payload"]
+    assert rp["reasoning_effort"] == "medium"
+
+
+async def test_model_request_raw_payload_omits_empty_reasoning_effort(db):
+    """reasoning_effort is absent from raw_payload when not set."""
+    plan = Plan(name="re-empty-plan")
+    db.add(plan)
+    db.flush()
+
+    mcs_no_re = json.dumps({
+        "base_url": "https://api.example.com/v1",
+        "api_key_env": "FAKE_KEY",
+        "model_snapshot": "test-model",
+        "params": json.dumps({"temperature": 0.5}),
+        "input_cost_per_1k": 0.0,
+        "output_cost_per_1k": 0.0,
+    })
+    pv = PlanVersion(
+        plan_id=plan.id,
+        version_number=1,
+        model_config_snapshot=mcs_no_re,
+        system_prompt="",
+        user_prompt="Hi",
+        run_settings=_RUN_SETTINGS,
+    )
+    db.add(pv)
+    db.flush()
+    session = Session(plan_version_id=pv.id, status="pending")
+    db.add(session)
+    db.commit()
+
+    captured_response = _no_tool_response()
+
+    with patch("app.services.agent_loop.assemble_response", AsyncMock(return_value=captured_response)):
+        await run_session(session.id, TestingSessionLocal)
+
+    session = db.get(Session, session.id)
+    db.refresh(session)
+    req_event = next(e for e in session.events if e.type == "model_request")
+    payload = json.loads(req_event.payload)
+    rp = payload["raw_payload"]
+    assert "reasoning_effort" not in rp
+
+
 # ── execute_tool: unknown mode ───────────────────────────────────────────────
 
 def test_unknown_response_mode():

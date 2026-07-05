@@ -1,4 +1,4 @@
-"""Session API tests (no real model calls — verifies create/list/get/abort)."""
+"""Session API tests (no real model calls — verifies create/list/get/abort/delete/audit)."""
 
 
 def _setup(client):
@@ -122,3 +122,82 @@ async def test_session_run_continues_with_missing_env_var(client):
 
     r = client.get(f"/api/sessions/{session_id}")
     assert "missing_env_var" not in (r.json().get("termination_reason") or "")
+
+
+def _force_status(client, session_id: str, status: str):
+    from app.models import Session as SessionModel
+    from tests.conftest import TestingSessionLocal
+    db = TestingSessionLocal()
+    s = db.get(SessionModel, session_id)
+    s.status = status
+    db.commit()
+    db.close()
+
+
+def test_delete_session_creates_audit_log(client):
+    pv_id = _setup(client)
+    session = client.post("/api/sessions", json={"plan_version_id": pv_id}).json()
+    sid = session["id"]
+    _force_status(client, sid, "completed")
+
+    r = client.request("DELETE", f"/api/sessions/{sid}", json={"reason": "test removal"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["entity_type"] == "session"
+    assert data["entity_id"] == sid
+    assert data["action"] == "delete"
+    assert data["reason"] == "test removal"
+    assert "session" in data["snapshot"]
+    assert "events" in data["snapshot"]
+
+    r2 = client.get(f"/api/sessions/{sid}")
+    assert r2.status_code == 404
+
+
+def test_delete_session_no_reason(client):
+    pv_id = _setup(client)
+    session = client.post("/api/sessions", json={"plan_version_id": pv_id}).json()
+    _force_status(client, session["id"], "completed")
+
+    r = client.request("DELETE", f"/api/sessions/{session['id']}", json={"reason": ""})
+    assert r.status_code == 200
+    assert r.json()["reason"] == ""
+
+
+def test_delete_running_session_fails(client):
+    pv_id = _setup(client)
+    session = client.post("/api/sessions", json={"plan_version_id": pv_id}).json()
+    _force_status(client, session["id"], "running")
+
+    r = client.request("DELETE", f"/api/sessions/{session['id']}", json={"reason": ""})
+    assert r.status_code == 400
+
+
+def test_delete_session_not_found(client):
+    r = client.request("DELETE", "/api/sessions/nonexistent", json={"reason": ""})
+    assert r.status_code == 404
+
+
+def test_audit_logs_list(client):
+    pv_id = _setup(client)
+    session = client.post("/api/sessions", json={"plan_version_id": pv_id}).json()
+    _force_status(client, session["id"], "completed")
+
+    client.request("DELETE", f"/api/sessions/{session['id']}", json={"reason": "audit test"})
+
+    r = client.get("/api/sessions/audit-logs")
+    assert r.status_code == 200
+    logs = r.json()
+    assert len(logs) >= 1
+    assert any(log["entity_id"] == session["id"] for log in logs)
+
+
+def test_audit_logs_filter_by_entity_type(client):
+    pv_id = _setup(client)
+    session = client.post("/api/sessions", json={"plan_version_id": pv_id}).json()
+    _force_status(client, session["id"], "completed")
+    client.request("DELETE", f"/api/sessions/{session['id']}", json={"reason": ""})
+
+    r = client.get("/api/sessions/audit-logs?entity_type=session")
+    assert r.status_code == 200
+    assert all(log["entity_type"] == "session" for log in r.json())

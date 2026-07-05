@@ -178,6 +178,10 @@ class PlanOut(BaseModel):
 
 # ── Session ───────────────────────────────────────────────────────────────────
 
+class SessionDeleteBody(BaseModel):
+    reason: str = ""
+
+
 class SessionCreate(BaseModel):
     plan_version_id: str
 
@@ -241,6 +245,27 @@ class SessionOut(BaseModel):
 class SessionDetailOut(SessionOut):
     events: list[EventOut]
     plan_version: PlanVersionOut
+
+
+# ── RunBatch ──────────────────────────────────────────────────────────────────
+
+# ── AuditLog ──────────────────────────────────────────────────────────────────
+
+class AuditLogOut(BaseModel):
+    id: str
+    entity_type: str
+    entity_id: str
+    action: str
+    reason: str
+    snapshot: dict
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("snapshot", mode="before")
+    @classmethod
+    def parse_snapshot(cls, v):
+        return json.loads(v) if isinstance(v, str) else v
 
 
 # ── RunBatch ──────────────────────────────────────────────────────────────────

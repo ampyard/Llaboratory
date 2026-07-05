@@ -124,6 +124,18 @@ class RunBatch(Base):
     sessions: Mapped[list["Session"]] = relationship(back_populates="batch", order_by="Session.batch_index")
 
 
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    entity_type: Mapped[str] = mapped_column(String, nullable=False)
+    entity_id: Mapped[str] = mapped_column(String, nullable=False)
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    snapshot: Mapped[str] = mapped_column(Text, nullable=False)  # JSON snapshot of the deleted entity
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class Session(Base):
     __tablename__ = "sessions"
 

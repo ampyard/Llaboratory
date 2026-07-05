@@ -117,6 +117,39 @@ describe('sessions API', () => {
     expect(url).toBe('/api/sessions/sess-1/abort')
     expect(init.method).toBe('POST')
   })
+
+  test('delete calls DELETE /api/sessions/:id with reason body', async () => {
+    mockFetch.mockReturnValue(okResponse({ id: 'audit-1' }))
+    const api = await getApi()
+    const result = await api.sessions.delete('sess-1', 'test reason')
+    const [url, init] = mockFetch.mock.calls[0]
+    expect(url).toBe('/api/sessions/sess-1')
+    expect(init.method).toBe('DELETE')
+    expect(JSON.parse(init.body)).toEqual({ reason: 'test reason' })
+    expect(result).toEqual({ id: 'audit-1' })
+  })
+
+  test('delete with empty reason', async () => {
+    mockFetch.mockReturnValue(okResponse({ id: 'audit-1' }))
+    const api = await getApi()
+    await api.sessions.delete('sess-1', '')
+    const [_, init] = mockFetch.mock.calls[0]
+    expect(JSON.parse(init.body)).toEqual({ reason: '' })
+  })
+
+  test('auditLogs calls GET /api/sessions/audit-logs', async () => {
+    mockFetch.mockReturnValue(okResponse([]))
+    const api = await getApi()
+    await api.sessions.auditLogs()
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/sessions/audit-logs')
+  })
+
+  test('auditLogs with filters appends query params', async () => {
+    mockFetch.mockReturnValue(okResponse([]))
+    const api = await getApi()
+    await api.sessions.auditLogs({ entity_type: 'session', entity_id: 'sess-1' })
+    expect(mockFetch.mock.calls[0][0]).toBe('/api/sessions/audit-logs?entity_type=session&entity_id=sess-1')
+  })
 })
 
 describe('error handling', () => {

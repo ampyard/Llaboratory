@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, StopCircle, Play } from 'lucide-react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, StopCircle, Play, Trash2, X } from 'lucide-react'
 import { api } from '../api/client'
 import StatusBadge from '../components/StatusBadge'
 import EventTimeline from '../components/EventTimeline'
@@ -9,6 +9,8 @@ import type { Event } from '../types'
 
 export default function SessionDetail() {
   const { sessionId } = useParams<{ sessionId: string }>()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const { data: session, refetch } = useQuery({
     queryKey: ['sessions', sessionId],
@@ -93,6 +95,7 @@ export default function SessionDetail() {
   }, [liveEvents])
 
   const [starting, setStarting] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   async function handleRun() {
     if (!sessionId) return
@@ -181,6 +184,14 @@ export default function SessionDetail() {
               <StopCircle className="w-3.5 h-3.5" /> Abort
             </button>
           )}
+          {!isRunning && session && (
+            <button
+              onClick={() => setShowDeleteDialog(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-red-200 text-red-500 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </button>
+          )}
         </div>
       </div>
 
@@ -219,6 +230,18 @@ export default function SessionDetail() {
         </div>
       )}
 
+      {showDeleteDialog && (
+        <DeleteDialog
+          sessionId={sessionId!}
+          onClose={() => setShowDeleteDialog(false)}
+          onDeleted={() => {
+            setShowDeleteDialog(false)
+            queryClient.invalidateQueries({ queryKey: ['sessions'] })
+            navigate('/sessions')
+          }}
+        />
+      )}
+
       {/* Events */}
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <h2 className="text-sm font-semibold text-gray-700 mb-3">
@@ -229,6 +252,63 @@ export default function SessionDetail() {
         <div ref={bottomRef} />
       </div>
 
+    </div>
+  )
+}
+
+function DeleteDialog({ sessionId, onClose, onDeleted }: { sessionId: string; onClose: () => void; onDeleted: () => void }) {
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function handleDelete() {
+    setSaving(true)
+    try {
+      await api.sessions.delete(sessionId, reason)
+      onDeleted()
+    } catch {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-semibold text-gray-800">Delete Session</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          A snapshot of this session and its events will be preserved in the audit log.
+          This action cannot be undone.
+        </p>
+        <label className="block text-xs font-medium text-gray-600 mb-1.5">
+          Reason for deletion <span className="text-gray-400">(optional)</span>
+        </label>
+        <textarea
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          placeholder="e.g., session was affected by a provider outage"
+          rows={3}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        />
+        <div className="flex items-center justify-end gap-2 mt-4">
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+          >
+            {saving ? 'Deleting…' : 'Delete Session'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -280,7 +280,7 @@ async def _run(session_id: str, db: DBSession) -> None:
                 break
 
             if not tool_calls or finish_reason == "end_turn":
-                termination_reason = "completed_no_tool_call"
+                termination_reason = "completed_with_tool_call" if total_tool_calls > 0 else "completed_no_tool_call"
                 break
 
             if finish_reason == "length":

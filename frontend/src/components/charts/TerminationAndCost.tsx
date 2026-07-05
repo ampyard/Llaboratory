@@ -33,6 +33,7 @@ interface PieDatum {
 const terminationLabel = (reason: string): string => {
   const map: Record<string, string> = {
     completed_no_tool_call: 'Done (no tool)',
+    completed_with_tool_call: 'Done (with tool)',
     max_turns: 'Max turns reached',
     loop_guard: 'Loop guard',
     timeout: 'Timed out',

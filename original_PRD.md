@@ -232,6 +232,7 @@ A session executes the classic agent loop: model request → (optional) tool cal
 ### 9.3 Termination conditions (recorded as `termination_reason`)
 
 - Model returns a final assistant message with **no tool call** → `completed_no_tool_call`.
+- Model returns a final assistant message after calling at least one tool during the session → `completed_with_tool_call`.
 - Max turns reached → `max_turns`.
 - Max tool calls reached → `max_tool_calls`.
 - Loop guard triggered → `loop_guard`.

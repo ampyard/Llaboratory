@@ -40,6 +40,7 @@ export const GRADIENTS: Record<string, { start: string; end: string }> = {
 // Termination reason - color mapping (consistent across charts)
 export const TERMINATION_COLORS: Record<string, string> = {
   completed_no_tool_call: '#10B981',
+  completed_with_tool_call: '#059669',
   max_turns: '#6366F1',
   loop_guard: '#F59E0B',
   timeout: '#EF4444',

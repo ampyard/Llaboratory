@@ -109,7 +109,8 @@
 
       <h3>Termination conditions</h3>
       <ul>
-        <li><code>completed_no_tool_call</code> — Model returned a final message without calling a tool.</li>
+        <li><code>completed_no_tool_call</code> — Model returned a final message without ever calling a tool.</li>
+        <li><code>completed_with_tool_call</code> — Model returned a final message after having called at least one tool.</li>
         <li><code>max_turns</code> — Hit the turn limit (default 20).</li>
         <li><code>max_tool_calls</code> — Hit the tool call limit (default 50).</li>
         <li><code>loop_guard</code> — Same tool + same args 5× in a row.</li>

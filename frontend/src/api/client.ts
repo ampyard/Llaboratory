@@ -1,7 +1,7 @@
 import type {
   Tool, ToolVersion, ModelConfig, Plan, PlanVersion,
   Session, SessionDetail, Event, RunBatch, RunBatchProgress,
-  ImportCheckResult, ImportResult, SeedToolPreview,
+  ImportCheckResult, ImportResult, SeedToolPreview, AuditLog,
 } from '../types'
 
 const BASE = '/api'
@@ -66,8 +66,14 @@ export const api = {
       req<Session>('/sessions', { method: 'POST', body: JSON.stringify({ plan_version_id }) }),
     run: (id: string) => req<Session>(`/sessions/${id}/run`, { method: 'POST' }),
     abort: (id: string) => req<Session>(`/sessions/${id}/abort`, { method: 'POST' }),
+    delete: (id: string, reason: string) =>
+      req<AuditLog>(`/sessions/${id}`, { method: 'DELETE', body: JSON.stringify({ reason }) }),
     events: (id: string) => req<Event[]>(`/sessions/${id}/events`),
     metrics: (id: string) => req<Record<string, unknown>>(`/sessions/${id}/metrics`),
+    auditLogs: (params?: { entity_type?: string; entity_id?: string }) => {
+      const qs = params ? '?' + new URLSearchParams(params as Record<string, string>).toString() : ''
+      return req<AuditLog[]>(`/sessions/audit-logs${qs}`)
+    },
   },
 
   runBatches: {

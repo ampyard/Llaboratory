@@ -17,6 +17,7 @@ import Batches from './pages/Batches'
 import BatchDetail from './pages/BatchDetail'
 import DataTransfer from './pages/DataTransfer'
 import FactoryReset from './pages/FactoryReset'
+import AuditLogs from './pages/AuditLogs'
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="plans/:planId/runs/:batchId" element={<BatchDetail />} />
           <Route path="sessions" element={<Sessions />} />
           <Route path="sessions/:sessionId" element={<SessionDetail />} />
+          <Route path="sessions/audit-logs" element={<AuditLogs />} />
           <Route path="batches" element={<Batches />} />
           <Route path="data-transfer" element={<DataTransfer />} />
           <Route path="factory-reset" element={<FactoryReset />} />

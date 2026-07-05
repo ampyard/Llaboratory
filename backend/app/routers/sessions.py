@@ -8,8 +8,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DBSession
 
 from app.database import get_db, SessionLocal
-from app.models import Session, PlanVersion
-from app.schemas import SessionCreate, SessionOut, SessionDetailOut, EventOut
+from app.models import Session, PlanVersion, AuditLog
+from app.schemas import SessionCreate, SessionOut, SessionDetailOut, EventOut, SessionDeleteBody, AuditLogOut
 from app.services.agent_loop import run_session, get_or_create_queue
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -27,6 +27,20 @@ def list_sessions(
     if status:
         q = q.filter(Session.status == status)
     return q.order_by(Session.started_at.desc()).all()
+
+
+@router.get("/audit-logs", response_model=list[AuditLogOut])
+def list_audit_logs(
+    entity_type: str | None = None,
+    entity_id: str | None = None,
+    db: DBSession = Depends(get_db),
+):
+    q = db.query(AuditLog).order_by(AuditLog.created_at.desc())
+    if entity_type:
+        q = q.filter(AuditLog.entity_type == entity_type)
+    if entity_id:
+        q = q.filter(AuditLog.entity_id == entity_id)
+    return q.all()
 
 
 @router.post("", response_model=SessionOut, status_code=201)
@@ -166,3 +180,56 @@ def get_session_metrics(session_id: str, db: DBSession = Depends(get_db)):
         "tool_errors": error_count,
         **totals,
     }
+
+
+@router.delete("/{session_id}", status_code=200)
+def delete_session(session_id: str, body: SessionDeleteBody, db: DBSession = Depends(get_db)):
+    session = db.get(Session, session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+
+    if session.status == "running":
+        raise HTTPException(400, "Cannot delete a running session")
+
+    # Build snapshot: serialize session + events
+    events_data = []
+    for ev in session.events:
+        events_data.append({
+            "id": ev.id,
+            "sequence_no": ev.sequence_no,
+            "timestamp": ev.timestamp.isoformat() if ev.timestamp else None,
+            "type": ev.type,
+            "payload": json.loads(ev.payload) if isinstance(ev.payload, str) else ev.payload,
+            "latency_ms": ev.latency_ms,
+            "token_usage": json.loads(ev.token_usage) if isinstance(ev.token_usage, str) else ev.token_usage,
+            "tool_call_id": ev.tool_call_id,
+        })
+
+    snapshot = {
+        "session": {
+            "id": session.id,
+            "plan_version_id": session.plan_version_id,
+            "batch_id": session.batch_id,
+            "batch_index": session.batch_index,
+            "started_at": session.started_at.isoformat() if session.started_at else None,
+            "ended_at": session.ended_at.isoformat() if session.ended_at else None,
+            "status": session.status,
+            "termination_reason": session.termination_reason,
+            "tool_order_used": json.loads(session.tool_order_used) if isinstance(session.tool_order_used, str) else session.tool_order_used,
+            "totals": json.loads(session.totals) if isinstance(session.totals, str) else session.totals,
+        },
+        "events": events_data,
+    }
+
+    log = AuditLog(
+        entity_type="session",
+        entity_id=session_id,
+        action="delete",
+        reason=body.reason,
+        snapshot=json.dumps(snapshot, default=str),
+    )
+    db.add(log)
+    db.delete(session)
+    db.commit()
+    db.refresh(log)
+    return log

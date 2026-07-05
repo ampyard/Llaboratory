@@ -161,6 +161,18 @@ export interface ImportCheckResult {
   conflicts: ExportConflict[]
 }
 
+// ── Audit Log ──────────────────────────────────────────────────────────────
+
+export interface AuditLog {
+  id: string
+  entity_type: string
+  entity_id: string
+  action: string
+  reason: string
+  snapshot: Record<string, unknown>
+  created_at: string
+}
+
 export interface ImportResult {
   success: boolean
   error?: string

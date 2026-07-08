@@ -15,7 +15,6 @@ export default function SessionDetail() {
   const { data: session, refetch } = useQuery({
     queryKey: ['sessions', sessionId],
     queryFn: () => api.sessions.get(sessionId!),
-    refetchInterval: (query) => query.state.data?.status === 'running' ? 2000 : false,
   })
 
   const { data: plan } = useQuery({

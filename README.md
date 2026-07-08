@@ -9,15 +9,13 @@
 </div>
 
 
-
-
 # Llaboratory
 
 A self-hostable, open-source laboratory for studying how LLMs behave when offered a set of fake tools. Design fake tools, wire in any OpenAI-compatible model, run one session or a thousand, and see exactly what the model picked and why.
 
-## Screenshot
+## Live Session - Demo
 
-![Live session view showing a tool call and its result](docs/screenshot.png)
+<video src="docs/screenshots/live-session.mp4" autoplay loop muted playsinline style="max-width: 100%; border-radius: 8px;" alt="Live Session video"></video>
 
 ## Quick Start
 

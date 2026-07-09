@@ -367,10 +367,11 @@ def aggregate_tool(tool_id: str, db: DBSession = Depends(get_db)):
     all_sessions = db.query(Session).all()
 
     per_session = []
-    for session in all_sessions:
-        tool_name_lower = tool.name.lower()
-        tool_display_names = {tv.display_name.lower() for tv in tool.versions}
+    all_call_records: list[dict] = []
+    tool_name_lower = tool.name.lower()
+    tool_display_names = {tv.display_name.lower() for tv in tool.versions}
 
+    for session in all_sessions:
         matched = False
         for ev in session.events:
             if ev.type in ("tool_call", "tool_error", "hallucinated_tool_call"):
@@ -381,9 +382,10 @@ def aggregate_tool(tool_id: str, db: DBSession = Depends(get_db)):
                     break
 
         if matched:
-            metrics = _session_metrics_for_tool(session, tool)
+            metrics, call_records = _session_metrics_for_tool(session, tool)
             if metrics:
                 per_session.append(metrics)
+                all_call_records.extend(call_records)
 
     if not per_session:
         return {
@@ -395,6 +397,7 @@ def aggregate_tool(tool_id: str, db: DBSession = Depends(get_db)):
             "hallucinated_tool_calls": 0,
             "per_model": {},
             "per_session": [],
+            "calls_history": [],
         }
 
     total_calls = sum(m["tool_calls"] for m in per_session)
@@ -415,6 +418,13 @@ def aggregate_tool(tool_id: str, db: DBSession = Depends(get_db)):
         per_model[model]["sessions"] += 1
         per_model[model]["total_tokens"] += m["total_tokens"]
 
+    # Sort call history in reverse chronological order (most recent first)
+    calls_history = sorted(
+        all_call_records,
+        key=lambda r: r["timestamp"] or "",
+        reverse=True,
+    )
+
     return {
         "tool_id": tool_id,
         "tool_name": tool.name,
@@ -431,6 +441,7 @@ def aggregate_tool(tool_id: str, db: DBSession = Depends(get_db)):
         "total_tokens_stats": safe_stats(all_tokens),
         "per_model": per_model,
         "per_session": per_session,
+        "calls_history": calls_history,
     }
 
 
@@ -444,8 +455,12 @@ def _get_model_name(session: Session) -> str:
         return "unknown"
 
 
-def _session_metrics_for_tool(session: Session, tool: Tool) -> dict | None:
-    """Return per-session metrics for a specific tool, or None if tool was never called in this session."""
+def _session_metrics_for_tool(session: Session, tool: Tool) -> tuple[dict | None, list[dict]]:
+    """Return (per-session metrics, list of individual call records) for a specific tool.
+
+    Returns (None, []) if tool was never called in this session.
+    Each call record captures input args, output result/error, status and timing.
+    """
     events = session.events
     tool_calls = 0
     tool_errors = 0
@@ -455,6 +470,13 @@ def _session_metrics_for_tool(session: Session, tool: Tool) -> dict | None:
 
     tool_name_lower = tool.name.lower()
     tool_display_names = {tv.display_name.lower() for tv in tool.versions}
+
+    model_name = _get_model_name(session)
+
+    # Build a map from tool_call_id -> call record so we can attach the result
+    # after we see the corresponding tool_result / tool_error event.
+    pending_calls: dict[str, dict] = {}  # tool_call_id -> partial record
+    call_records: list[dict] = []
 
     for ev in events:
         payload = json.loads(ev.payload) if isinstance(ev.payload, str) else ev.payload
@@ -470,15 +492,61 @@ def _session_metrics_for_tool(session: Session, tool: Tool) -> dict | None:
             if ev.token_usage:
                 tu = json.loads(ev.token_usage) if isinstance(ev.token_usage, str) else ev.token_usage
                 token_usage.append(tu)
+
+            record: dict = {
+                "session_id": session.id,
+                "model_name": model_name,
+                "timestamp": ev.timestamp.isoformat() if ev.timestamp else None,
+                "tool_call_id": ev.tool_call_id,
+                "args": payload.get("parsed_args"),
+                "output": None,
+                "status": "success",  # optimistic; overwritten on error
+                "latency_ms": ev.latency_ms,
+            }
+            call_records.append(record)
+            if ev.tool_call_id:
+                pending_calls[ev.tool_call_id] = record
+
         elif ev.type == "tool_error":
             tool_errors += 1
+            # Try to attach the error to the matching call record
+            matched = pending_calls.get(ev.tool_call_id or "") if ev.tool_call_id else None
+            if matched:
+                matched["status"] = "error"
+                matched["output"] = payload.get("error") or payload.get("errors")
+            else:
+                # Standalone error record (e.g. schema validation before tool_call emitted)
+                call_records.append({
+                    "session_id": session.id,
+                    "model_name": model_name,
+                    "timestamp": ev.timestamp.isoformat() if ev.timestamp else None,
+                    "tool_call_id": ev.tool_call_id,
+                    "args": payload.get("args"),
+                    "output": payload.get("error") or payload.get("errors"),
+                    "status": "error",
+                    "latency_ms": ev.latency_ms,
+                })
+
+        elif ev.type == "tool_result":
+            matched = pending_calls.get(ev.tool_call_id or "") if ev.tool_call_id else None
+            if matched:
+                matched["output"] = payload.get("result")
+
         elif ev.type == "hallucinated_tool_call":
             tool_hallucinated += 1
+            call_records.append({
+                "session_id": session.id,
+                "model_name": model_name,
+                "timestamp": ev.timestamp.isoformat() if ev.timestamp else None,
+                "tool_call_id": ev.tool_call_id,
+                "args": payload.get("args"),
+                "output": None,
+                "status": "hallucinated",
+                "latency_ms": ev.latency_ms,
+            })
 
     if tool_calls == 0 and tool_errors == 0 and tool_hallucinated == 0:
-        return None
-
-    model_name = _get_model_name(session)
+        return None, []
 
     return {
         "session_id": session.id,
@@ -496,4 +564,4 @@ def _session_metrics_for_tool(session: Session, tool: Tool) -> dict | None:
         "total_tokens": sum(
             tu.get("input_tokens", 0) + tu.get("output_tokens", 0) for tu in token_usage
         ),
-    }
+    }, call_records

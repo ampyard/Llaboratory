@@ -3,8 +3,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from app.database import Base
-from app.models import Event, Plan, PlanVersion, Session, Tool, ToolVersion
+from app.models import Event, Plan, PlanVersion, Session
 
 
 TOOL_PAYLOAD = {

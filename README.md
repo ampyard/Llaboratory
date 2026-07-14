@@ -15,7 +15,7 @@ A self-hostable, open-source laboratory for studying how LLMs behave when offere
 
 ## Live Session - Demo
 
-<video src="https://llaboratory.ampyard.com/screenshots/live-session.mp4" autoplay loop muted playsinline style="max-width: 100%; border-radius: 8px;" alt="Live Session video"></video>
+<img width="1280" height="720" alt="live-session" src="https://github.com/user-attachments/assets/5434848d-8dfc-4dd0-be7e-89fb7025fbce" />
 
 ## Quick Start
 

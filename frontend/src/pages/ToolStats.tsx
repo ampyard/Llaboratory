@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, BarChart2, Sparkles } from 'lucide-react'
+import { ArrowLeft, BarChart2, Sparkles, Clock, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { api } from '../api/client'
 import { ModelCallsChart } from '../components/charts'
 
@@ -10,6 +10,17 @@ interface PerModelStats {
   hallucinated: number
   sessions: number
   total_tokens: number
+}
+
+interface ToolCallRecord {
+  session_id: string
+  model_name: string
+  timestamp: string | null
+  tool_call_id: string | null
+  args: Record<string, unknown> | null
+  output: unknown
+  status: 'success' | 'error' | 'hallucinated'
+  latency_ms: number | null
 }
 
 interface ToolAnalysis {
@@ -24,6 +35,7 @@ interface ToolAnalysis {
   total_tokens_stats: { mean: number; stdev: number; min: number; max: number }
   per_model: Record<string, PerModelStats>
   per_session: Record<string, unknown>[]
+  calls_history: ToolCallRecord[]
 }
 
 function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children?: React.ReactNode }) {
@@ -259,6 +271,111 @@ export default function ToolStats() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+          {/* Call History */}
+          {stats.calls_history && stats.calls_history.length > 0 && (
+            <div className="bg-white border border-gray-200 rounded-2xl p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-1">Call History</h3>
+              <p className="text-xs text-gray-400 mb-4">All past invocations, most recent first</p>
+              <div className="space-y-3">
+                {stats.calls_history.map((record, idx) => {
+                  const statusColor =
+                    record.status === 'success'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : record.status === 'error'
+                      ? 'bg-rose-100 text-rose-700'
+                      : 'bg-amber-100 text-amber-700'
+
+                  const StatusIcon =
+                    record.status === 'success'
+                      ? CheckCircle2
+                      : record.status === 'error'
+                      ? XCircle
+                      : AlertTriangle
+
+                  return (
+                    <div
+                      key={idx}
+                      className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50 transition-colors"
+                    >
+                      {/* Header row */}
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${statusColor}`}
+                        >
+                          <StatusIcon className="w-3 h-3" />
+                          {record.status}
+                        </span>
+                        {record.model_name && (
+                          <span className="text-xs font-mono text-gray-500">{record.model_name}</span>
+                        )}
+                        <Link
+                          to={`/sessions/${record.session_id}`}
+                          className="text-xs font-mono text-indigo-400 hover:text-indigo-600"
+                        >
+                          {record.session_id.slice(0, 8)}…
+                        </Link>
+                        <span className="ml-auto flex items-center gap-1 text-xs text-gray-400 shrink-0">
+                          {record.latency_ms != null && (
+                            <>
+                              <Clock className="w-3 h-3" />
+                              {record.latency_ms}ms
+                            </>
+                          )}
+                          {record.timestamp && (
+                            <span className="ml-2">
+                              {new Intl.DateTimeFormat('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                              }).format(new Date(record.timestamp))}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+
+                      {/* Args */}
+                      {record.args != null && (
+                        <details className="group mb-2">
+                          <summary className="cursor-pointer text-xs font-semibold text-gray-500 hover:text-gray-800 select-none list-none flex items-center gap-1">
+                            <span className="group-open:hidden">▶</span>
+                            <span className="hidden group-open:inline">▼</span>
+                            Inputs
+                          </summary>
+                          <pre className="mt-1 text-xs text-gray-700 bg-gray-50 border border-gray-100 rounded-lg p-3 overflow-auto max-h-48 whitespace-pre-wrap">
+                            {JSON.stringify(record.args, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+
+                      {/* Output */}
+                      {record.output != null && (
+                        <details className="group">
+                          <summary className="cursor-pointer text-xs font-semibold text-gray-500 hover:text-gray-800 select-none list-none flex items-center gap-1">
+                            <span className="group-open:hidden">▶</span>
+                            <span className="hidden group-open:inline">▼</span>
+                            {record.status === 'error' ? 'Error' : 'Output'}
+                          </summary>
+                          <pre
+                            className={`mt-1 text-xs border rounded-lg p-3 overflow-auto max-h-48 whitespace-pre-wrap ${
+                              record.status === 'error'
+                                ? 'text-rose-700 bg-rose-50 border-rose-100'
+                                : 'text-gray-700 bg-gray-50 border-gray-100'
+                            }`}
+                          >
+                            {typeof record.output === 'string'
+                              ? record.output
+                              : JSON.stringify(record.output, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}

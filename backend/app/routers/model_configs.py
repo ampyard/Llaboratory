@@ -5,7 +5,12 @@ import json
 
 from app.database import get_db
 from app.models import ModelConfig, PlanVersion
-from app.schemas import ModelConfigCreate, ModelConfigOut, ModelConfigUpdate
+from app.schemas import (
+    ModelConfigCreate,
+    ModelConfigOut,
+    ModelConfigUpdate,
+    _validate_provider_kind,
+)
 
 router = APIRouter(prefix="/model-configs", tags=["model-configs"])
 
@@ -17,8 +22,13 @@ def list_model_configs(db: Session = Depends(get_db)):
 
 @router.post("", response_model=ModelConfigOut, status_code=201)
 def create_model_config(body: ModelConfigCreate, db: Session = Depends(get_db)):
+    try:
+        provider_kind = _validate_provider_kind(body.provider_kind)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     mc = ModelConfig(
         name=body.name,
+        provider_kind=provider_kind or "openai_compatible",
         base_url=body.base_url,
         model_snapshot=body.model_snapshot,
         api_key_env=body.api_key_env,
@@ -48,6 +58,12 @@ def update_model_config(config_id: str, body: ModelConfigUpdate, db: Session = D
     for field, value in body.model_dump(exclude_none=True).items():
         if field == "params":
             setattr(mc, field, json.dumps(value))
+        elif field == "provider_kind":
+            try:
+                value = _validate_provider_kind(value)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            setattr(mc, field, value)
         else:
             setattr(mc, field, value)
     db.commit()

@@ -12,7 +12,24 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.models import Session, Event, ToolVersion
 from app.services.provider import assemble_response, ProviderError
+from app.services.responses_provider import assemble_response as responses_assemble_response
 from app.services.tool_executor import execute_tool, validate_args
+
+# Adapter dispatch: the loop resolves the adapter by its module-level name so
+# that tests can monkeypatch `assemble_response` / `responses_assemble_response`
+# (as the existing test-suite does) and have the patch take effect.
+
+
+async def _call_adapter(provider_kind: str | None, **kwargs):
+    """Invoke the provider adapter selected by `provider_kind`.
+
+    Defaults to the Chat Completions adapter; `responses_api` selects the
+    OpenAI Responses API adapter. Both are referenced by module-level name so
+    they remain patchable in tests.
+    """
+    if provider_kind == "responses_api":
+        return await responses_assemble_response(**kwargs)
+    return await assemble_response(**kwargs)
 
 # Global registry of SSE queues: session_id -> asyncio.Queue
 _session_queues: dict[str, asyncio.Queue] = {}
@@ -216,7 +233,8 @@ async def _run(session_id: str, db: DBSession) -> None:
 
             req_start = time.monotonic()
             try:
-                response = await assemble_response(
+                response = await _call_adapter(
+                    mcs.get("provider_kind"),
                     base_url=mcs["base_url"],
                     api_key_env=mcs["api_key_env"],
                     model=mcs["model_snapshot"],
@@ -234,7 +252,8 @@ async def _run(session_id: str, db: DBSession) -> None:
                     # Simple single retry after 2s
                     await asyncio.sleep(2)
                     try:
-                        response = await assemble_response(
+                        response = await _call_adapter(
+                            mcs.get("provider_kind"),
                             base_url=mcs["base_url"],
                             api_key_env=mcs["api_key_env"],
                             model=mcs["model_snapshot"],

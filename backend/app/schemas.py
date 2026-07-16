@@ -87,6 +87,7 @@ class ModelConfigCreate(BaseModel):
     params: dict = {}
     input_cost_per_1k: float = 0.0
     output_cost_per_1k: float = 0.0
+    provider_kind: str = "openai_compatible"
 
 class ModelConfigUpdate(BaseModel):
     name: str | None = None
@@ -96,6 +97,21 @@ class ModelConfigUpdate(BaseModel):
     params: dict | None = None
     input_cost_per_1k: float | None = None
     output_cost_per_1k: float | None = None
+    provider_kind: str | None = None
+
+# Allowed provider kinds. Extend here when shipping a new adapter.
+PROVIDER_KINDS = {"openai_compatible", "responses_api"}
+
+
+def _validate_provider_kind(kind: str | None) -> str | None:
+    """Return the validated kind, or None. Raises ValueError on an unknown kind."""
+    if kind is None:
+        return None
+    if kind not in PROVIDER_KINDS:
+        raise ValueError(
+            f"Unknown provider_kind '{kind}'. Allowed: {', '.join(sorted(PROVIDER_KINDS))}"
+        )
+    return kind
 
 class ModelConfigOut(BaseModel):
     id: str

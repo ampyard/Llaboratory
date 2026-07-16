@@ -79,7 +79,7 @@
       <img src="/screenshots/14-tool-stats.png" alt="Tool Stats — usage analytics for a single tool across models" />
 
       <h2>2. Model Configs</h2>
-      <p>Model Configs store the connection details for an LLM provider. All configs speak the OpenAI-compatible chat-completions API, so anything that exposes that surface works — OpenAI, OpenRouter, LM Studio, Ollama, and similar. Configure:</p>
+      <p>Model Configs store the connection details for an LLM provider. Choose the <strong>API style</strong> that matches your endpoint: <em>Chat Completions</em> (the OpenAI-compatible <code>/v1/chat/completions</code> surface — OpenAI, OpenRouter, LM Studio, Ollama, and similar) or <em>Responses API</em> (OpenAI and OpenRouter <code>/v1/responses</code>). The harness normalizes both to the same internal representation, so everything downstream is identical. Configure:</p>
       <ul>
         <li><strong>Base URL</strong> — The API endpoint.</li>
         <li><strong>Model snapshot</strong> — The exact model identifier (e.g. <code>gpt-4o-2025-05-10</code>). No aliases — pin the exact version.</li>

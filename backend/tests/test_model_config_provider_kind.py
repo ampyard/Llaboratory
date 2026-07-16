@@ -153,3 +153,49 @@ async def test_loop_runs_chat_completions_by_default(db):
     db.refresh(final)
     assert final.status == "completed"
     assert final.termination_reason == "completed_no_tool_call"
+
+
+async def test_loop_runs_a_responses_session_with_tool_calls(db):
+    """A Responses API session that calls a tool then completes.
+
+    Verifies the responses adapter is selected AND produces a valid input
+    shape (top-level function_call items) across both turns. We patch the
+    responses adapter to (1) emit a tool call, then (2) emit final text, and
+    capture the messages it was called with to confirm no nested function_calls.
+    """
+    from app.services import responses_provider
+
+    turns = iter([
+        _responses_turn(
+            finish="tool_call",
+            tool_calls=[{"tool_call_id": "call_1", "name": "get_weather",
+                         "raw_args": '{"city": "SF"}', "parsed_args": {"city": "SF"}}],
+        ),
+        _responses_turn(text="It is sunny."),
+    ])
+
+    captured_inputs = []
+
+    async def fake_assemble(**kwargs):
+        captured_inputs.append(kwargs["messages"])
+        try:
+            return next(turns)
+        except StopIteration:
+            return _responses_turn(text="done")
+
+    with patch("app.services.agent_loop.responses_assemble_response", fake_assemble):
+        await run_session(session_id := _make_responses_session(db, "responses_api"), TestingSessionLocal)
+
+    final = db.get(Session, session_id)
+    db.refresh(final)
+    assert final.status == "completed"
+    assert final.termination_reason == "completed_with_tool_call"
+
+    # Second turn's input must contain a top-level function_call item, not a
+    # message whose content is a list of function_calls (the old bad shape).
+    second_turn = captured_inputs[1]
+    mapped = responses_provider._map_messages_to_input(second_turn)[1]
+    assert any(it.get("type") == "function_call" for it in mapped)
+    for it in mapped:
+        if it.get("type") == "message" and isinstance(it.get("content"), list):
+            assert not any(c.get("type") == "function_call" for c in it["content"])

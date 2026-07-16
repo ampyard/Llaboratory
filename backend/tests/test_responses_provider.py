@@ -39,25 +39,46 @@ def test_map_messages_pulls_system_into_instructions():
     assert items == [{"type": "message", "role": "user", "content": "Hi"}]
 
 
-def test_map_messages_assistant_tool_calls_become_function_call_items():
+def test_map_messages_assistant_tool_calls_become_top_level_function_call_items():
+    """Assistant tool calls must be top-level `function_call` input items, not
+    nested inside a `message` item's content (that shape is rejected by the
+    Responses API with 'Invalid type for input')."""
     messages = [
         {"role": "assistant", "content": None, "tool_calls": [
-            {"id": "call_1", "type": "function", "function": {"name": "foo", "arguments": "{\"x\":1}"}},
+            {"id": "call_1", "type": "function", "function": {"name": "foo", "arguments": '{"x":1}'}},
         ]},
-        {"role": "tool", "tool_call_id": "call_1", "content": "{\"result\": 9}"},
+        {"role": "tool", "tool_call_id": "call_1", "content": '{"result": 9}'},
     ]
     instructions, items = _map_messages_to_input(messages)
     assert instructions == ""
-    assert items[0]["type"] == "message"
-    assert items[0]["role"] == "assistant"
-    calls = items[0]["content"]
-    assert calls[0]["type"] == "function_call"
-    assert calls[0]["call_id"] == "call_1"
-    assert calls[0]["name"] == "foo"
-    assert json.loads(calls[0]["arguments"]) == {"x": 1}
+    # The function_call is a top-level item, NOT nested in a message's content.
+    assert items[0]["type"] == "function_call"
+    assert items[0]["call_id"] == "call_1"
+    assert items[0]["name"] == "foo"
+    assert json.loads(items[0]["arguments"]) == {"x": 1}
     assert items[1]["type"] == "function_call_output"
     assert items[1]["call_id"] == "call_1"
     assert items[1]["output"] == '{"result": 9}'
+    # No message item should contain a function_call in its content.
+    for it in items:
+        if it.get("type") == "message" and isinstance(it.get("content"), list):
+            assert not any(c.get("type") == "function_call" for c in it["content"])
+
+
+def test_map_messages_assistant_text_plus_tool_calls():
+    """Assistant text becomes a message item; tool calls become sibling items."""
+    messages = [
+        {"role": "assistant", "content": "Let me check.", "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "a", "arguments": "{}"}},
+            {"id": "c2", "type": "function", "function": {"name": "b", "arguments": "{}"}},
+        ]},
+        {"role": "tool", "tool_call_id": "c1", "content": "1"},
+        {"role": "tool", "tool_call_id": "c2", "content": "2"},
+    ]
+    _, items = _map_messages_to_input(messages)
+    types = [it["type"] for it in items]
+    assert types == ["message", "function_call", "function_call", "function_call_output", "function_call_output"]
+    assert items[0]["content"] == "Let me check."
 
 
 def test_map_messages_multiple_system_messages_join():

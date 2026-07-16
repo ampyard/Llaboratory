@@ -88,19 +88,28 @@ def _map_messages_to_input(messages: list[dict]) -> tuple[str, list[dict]]:
         if role == "assistant":
             tool_calls = msg.get("tool_calls")
             if tool_calls:
-                calls = []
+                # In the Responses API, assistant tool calls are top-level
+                # `function_call` input items — they must NOT be nested inside a
+                # `message` item's `content` (that only accepts text/image parts).
+                # Emit any assistant text as its own message item, then the
+                # function_calls as sibling items, in order.
+                content = msg.get("content")
+                text = content if isinstance(content, str) else (
+                    json.dumps(content) if content else ""
+                )
+                if text:
+                    input_items.append({"type": "message", "role": "assistant", "content": text})
                 for tc in tool_calls:
                     fn = tc.get("function", {})
                     raw_args = fn.get("arguments", "{}")
                     if not isinstance(raw_args, str):
                         raw_args = "{}"
-                    calls.append({
+                    input_items.append({
                         "type": "function_call",
                         "call_id": tc.get("id") or str(uuid.uuid4()),
                         "name": fn.get("name", ""),
                         "arguments": raw_args,
                     })
-                input_items.append({"type": "message", "role": "assistant", "content": calls})
             else:
                 content = msg.get("content")
                 text = content if isinstance(content, str) else json.dumps(content)

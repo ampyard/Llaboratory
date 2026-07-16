@@ -220,3 +220,38 @@ async def test_assemble_response_error_event_raises_provider_error():
             assert False, "expected ProviderError"
         except ProviderError as e:
             assert "tool 'foo' not supported" in str(e)
+
+
+async def test_logged_raw_request_maps_reasoning_effort_to_reasoning_object():
+    """The logged raw_request must mirror the wire payload: reasoning_effort
+    -> {'reasoning': {'effort': ...}}, never the bare 'reasoning_effort' key."""
+    events = [
+        {"type": "response.output_text.delta", "delta": "x"},
+        {"type": "response.completed", "response": {"status": "completed", "usage": {}}},
+    ]
+    with _patch_stream(events):
+        resp = await assemble_response(
+            base_url="https://api.openai.com/v1", api_key_env="FAKE",
+            model="gpt-4o", messages=[{"role": "user", "content": "hi"}],
+            tools=[], params={"reasoning_effort": "high", "temperature": 0.5},
+            stream_callback=None,
+        )
+    rr = resp["raw_request"]
+    assert rr.get("reasoning") == {"effort": "high"}, rr
+    assert "reasoning_effort" not in rr, rr
+    assert rr.get("temperature") == 0.5
+
+
+async def test_logged_raw_request_omits_reasoning_when_unset():
+    events = [
+        {"type": "response.output_text.delta", "delta": "x"},
+        {"type": "response.completed", "response": {"status": "completed", "usage": {}}},
+    ]
+    with _patch_stream(events):
+        resp = await assemble_response(
+            base_url="https://api.openai.com/v1", api_key_env="FAKE",
+            model="gpt-4o", messages=[{"role": "user", "content": "hi"}],
+            tools=[], params={}, stream_callback=None,
+        )
+    assert "reasoning" not in resp["raw_request"]
+    assert "reasoning_effort" not in resp["raw_request"]

@@ -126,27 +126,12 @@ def _map_messages_to_input(messages: list[dict]) -> tuple[str, list[dict]]:
 # ── Streaming ───────────────────────────────────────────────────────────────
 
 
-async def stream_responses(
-    base_url: str,
-    api_key_env: str,
-    model: str,
-    messages: list[dict],
-    tools: list[dict],
-    params: dict,
-) -> AsyncGenerator[dict, None]:
-    """Yield raw SSE events from the Responses API ``/responses`` stream."""
-    api_key = os.environ.get(api_key_env, "")
-    headers = {
-        "Content-Type": "application/json",
-    }
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
+def _build_responses_payload(model: str, messages: list[dict], tools: list[dict], params: dict) -> dict:
+    """Construct the request body for POST /v1/responses.
 
-    # OpenRouter app attribution (https://openrouter.ai/docs/app-attribution)
-    headers["HTTP-Referer"] = "https://llaboratory.ampyard.com/"
-    headers["X-OpenRouter-Title"] = "Llaboratory"
-    headers["X-OpenRouter-Categories"] = "roleplay"
-
+    Shared by the live stream and the logged ``raw_request`` so the audit
+    trail exactly mirrors what was sent on the wire (PRD §12 reproducibility).
+    """
     instructions, input_items = _map_messages_to_input(messages)
 
     payload: dict[str, Any] = {
@@ -168,6 +153,31 @@ async def stream_responses(
     effort = params.get("reasoning_effort")
     if effort:
         payload["reasoning"] = {"effort": effort}
+    return payload
+
+
+async def stream_responses(
+    base_url: str,
+    api_key_env: str,
+    model: str,
+    messages: list[dict],
+    tools: list[dict],
+    params: dict,
+) -> AsyncGenerator[dict, None]:
+    """Yield raw SSE events from the Responses API ``/responses`` stream."""
+    api_key = os.environ.get(api_key_env, "")
+    headers = {
+        "Content-Type": "application/json",
+    }
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    # OpenRouter app attribution (https://openrouter.ai/docs/app-attribution)
+    headers["HTTP-Referer"] = "https://llaboratory.ampyard.com/"
+    headers["X-OpenRouter-Title"] = "Llaboratory"
+    headers["X-OpenRouter-Categories"] = "roleplay"
+
+    payload = _build_responses_payload(model, messages, tools, params)
 
     url = base_url.rstrip("/") + "/responses"
     async with httpx.AsyncClient(timeout=120.0) as client:
@@ -235,18 +245,7 @@ async def assemble_response(
     token_usage: dict = {}
     raw_events: list[dict] = []
 
-    raw_request: dict = {
-        "model": model,
-        "input": _map_messages_to_input(messages)[1],
-        "stream": True,
-        "tools": _map_tools_to_response_format(tools) if tools else [],
-    }
-    instructions, _ = _map_messages_to_input(messages)
-    if instructions:
-        raw_request["instructions"] = instructions
-    for k in ("temperature", "top_p", "seed", "max_tokens", "reasoning_effort"):
-        if k in params:
-            raw_request[k] = params[k]
+    raw_request = _build_responses_payload(model, messages, tools, params)
 
     async for event in stream_responses(base_url, api_key_env, model, messages, tools, dict(params)):
         raw_events.append(event)

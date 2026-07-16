@@ -158,9 +158,16 @@ async def stream_responses(
     if instructions:
         payload["instructions"] = instructions
     # Pass through supported sampling params (drop unknown ones per PRD §8.1).
-    for k in ("temperature", "top_p", "seed", "max_tokens", "reasoning_effort"):
+    for k in ("temperature", "top_p", "seed", "max_tokens"):
         if k in params:
             payload[k] = params[k]
+    # Reasoning effort: the Responses API expresses reasoning control as a
+    # nested `reasoning` object ({"effort": "low"|"medium"|"high"}). LM Studio
+    # (and current OpenAI) read it from there, not as a bare `reasoning_effort`
+    # field, so map it into that shape when present.
+    effort = params.get("reasoning_effort")
+    if effort:
+        payload["reasoning"] = {"effort": effort}
 
     url = base_url.rstrip("/") + "/responses"
     async with httpx.AsyncClient(timeout=120.0) as client:
@@ -246,12 +253,13 @@ async def assemble_response(
         etype = event.get("type")
 
         if etype == "response.created":
-            resp = event.get("response", {})
-            if resp.get("incomplete_details", {}).get("reason") == "max_output_tokens":
+            resp = event.get("response") or {}
+            incomplete = resp.get("incomplete_details") or {}
+            if incomplete.get("reason") == "max_output_tokens":
                 finish_reason_raw = "length"
 
         elif etype == "response.output_item.added":
-            item = event.get("item", {})
+            item = event.get("item") or {}
             if item.get("type") == "function_call":
                 call_id = item.get("call_id") or str(uuid.uuid4())
                 tc_buffers[call_id] = {
@@ -287,9 +295,15 @@ async def assemble_response(
                     await stream_callback("reasoning_delta", delta)
 
         elif etype == "response.completed":
-            resp = event.get("response", {})
+            resp = event.get("response") or {}
+            if not resp:
+                # LM Studio (and some servers) emit a completion event with
+                # "response": null even on a successful stream that already
+                # delivered text/tool deltas. Don't treat that as a failure —
+                # let the end-of-stream inference pick the finish reason.
+                continue
             if "usage" in resp:
-                u = resp["usage"]
+                u = resp.get("usage") or {}
                 token_usage = {
                     "input_tokens": u.get("input_tokens", 0),
                     "output_tokens": u.get("output_tokens", 0),
@@ -301,7 +315,7 @@ async def assemble_response(
             if finish_reason_raw is None:
                 status = resp.get("status")
                 if status == "incomplete":
-                    reason = resp.get("incomplete_details", {}).get("reason")
+                    reason = (resp.get("incomplete_details") or {}).get("reason")
                     if reason == "max_output_tokens":
                         finish_reason_raw = "length"
                     elif reason == "content_filter":
@@ -313,8 +327,18 @@ async def assemble_response(
                     finish_reason_raw = "tool_call" if tc_buffers else "end_turn"
 
         elif etype in ("response.failed", "error"):
-            # Surface provider-level failure.
-            finish_reason_raw = finish_reason_raw or "error"
+            # A terminal provider error inside an otherwise-200 stream
+            # (e.g. LM Studio emits {"type":"error","message":...} or a
+            # response.failed with response.error). Raise so the agent loop
+            # records the session as errored instead of swallowing it.
+            msg = event.get("message") or event.get("error") or ""
+            resp_err = (event.get("response") or {}).get("error")
+            if isinstance(resp_err, dict):
+                msg = resp_err.get("message") or resp_err.get("code") or msg
+            raise ProviderError(
+                f"Provider error: {msg}" if msg else "Provider returned an error event",
+                retryable=False,
+            )
 
     # Normalize finish reason
     finish_map = {

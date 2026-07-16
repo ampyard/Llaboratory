@@ -165,3 +165,58 @@ async def test_assemble_response_stream_callback_fires():
             tools=[], params={}, stream_callback=cb,
         )
     assert any(kind == "text_delta" for kind, _ in seen)
+
+
+async def test_assemble_response_tolerates_null_response_object():
+    """LM Studio / some servers emit events with "response": null — must not crash."""
+    events = [
+        {"type": "response.created", "response": None},
+        {"type": "response.output_text.delta", "delta": "hi"},
+        {"type": "response.completed", "response": None},
+    ]
+    with _patch_stream(events):
+        resp = await assemble_response(
+            base_url="http://localhost:1234/v1", api_key_env="FAKE",
+            model="llama", messages=[{"role": "user", "content": "hi"}],
+            tools=[], params={}, stream_callback=None,
+        )
+    # No tool calls -> completion; null response just means no usage/status.
+    assert resp["finish_reason"] == "end_turn"
+    assert resp["content_parts"][0]["content"] == "hi"
+    assert resp["token_usage"] == {}
+
+
+async def test_assemble_response_null_response_with_text_completes():
+    """response.created carries the object, completed is null (LM Studio quirk)."""
+    events = [
+        {"type": "response.created", "response": {"status": "in_progress", "id": "resp_1"}},
+        {"type": "response.output_text.delta", "delta": "Hello"},
+        {"type": "response.completed", "response": None},
+    ]
+    with _patch_stream(events):
+        resp = await assemble_response(
+            base_url="http://localhost:1234/v1", api_key_env="FAKE",
+            model="llama", messages=[{"role": "user", "content": "hi"}],
+            tools=[], params={}, stream_callback=None,
+        )
+    assert resp["finish_reason"] == "end_turn"
+    assert resp["content_parts"][0]["content"] == "Hello"
+
+
+async def test_assemble_response_error_event_raises_provider_error():
+    """A streamed error event (LM Studio uses type:"error") surfaces as ProviderError."""
+    from app.services.responses_provider import ProviderError
+    events = [
+        {"type": "response.created", "response": {"status": "in_progress"}},
+        {"type": "error", "message": "tool 'foo' not supported"},
+    ]
+    with _patch_stream(events):
+        try:
+            await assemble_response(
+                base_url="http://localhost:1234/v1", api_key_env="FAKE",
+                model="llama", messages=[{"role": "user", "content": "hi"}],
+                tools=[], params={}, stream_callback=None,
+            )
+            assert False, "expected ProviderError"
+        except ProviderError as e:
+            assert "tool 'foo' not supported" in str(e)

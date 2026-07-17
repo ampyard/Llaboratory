@@ -8,12 +8,19 @@ interface FormState {
   name: string; base_url: string; model_snapshot: string
   api_key_env: string; input_cost_per_1k: string; output_cost_per_1k: string
   temperature: string; max_tokens: string; reasoning_effort: string
+  provider_kind: string
 }
 
 const EMPTY: FormState = {
-  name: '', base_url: 'https://openrouter.ai/api/v1', model_snapshot: '',
+  name: '', base_url: 'https://api.openai.com/v1', model_snapshot: '',
   api_key_env: '', input_cost_per_1k: '0', output_cost_per_1k: '0',
   temperature: '1', max_tokens: '4096', reasoning_effort: '',
+  provider_kind: 'openai_compatible',
+}
+
+export const PROVIDER_KIND_LABELS: Record<string, string> = {
+  openai_compatible: 'Chat Completions',
+  responses_api: 'Responses API',
 }
 
 export default function ModelConfigs() {
@@ -37,6 +44,7 @@ export default function ModelConfigs() {
         input_cost_per_1k: parseFloat(form.input_cost_per_1k) || 0,
         output_cost_per_1k: parseFloat(form.output_cost_per_1k) || 0,
         params,
+        provider_kind: form.provider_kind,
       }
       if (editing) return api.modelConfigs.update(editing.id, body)
       return api.modelConfigs.create(body)
@@ -74,6 +82,7 @@ export default function ModelConfigs() {
       temperature: String(p.temperature ?? 1),
       max_tokens: String(p.max_tokens ?? 4096),
       reasoning_effort: String(p.reasoning_effort ?? ''),
+      provider_kind: mc.provider_kind ?? 'openai_compatible',
     })
     setEditing(mc); setShowForm(true)
   }
@@ -102,6 +111,9 @@ export default function ModelConfigs() {
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-medium text-gray-900">{mc.name}</span>
                 <span className="text-xs font-mono text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{mc.model_snapshot}</span>
+                <span className="text-xs font-mono text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                  {PROVIDER_KIND_LABELS[mc.provider_kind] ?? mc.provider_kind}
+                </span>
               </div>
               <p className="text-xs text-gray-400 truncate">{mc.base_url}</p>
               <div className="flex gap-3 mt-1 text-xs text-gray-400">
@@ -150,6 +162,18 @@ export default function ModelConfigs() {
                   />
                 </div>
               ))}
+              <div>
+                <label htmlFor="provider_kind" className="text-xs font-medium text-gray-600 block mb-1">API style</label>
+                <select
+                  id="provider_kind"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+                  value={form.provider_kind}
+                  onChange={e => setForm(f => ({ ...f, provider_kind: e.target.value }))}
+                >
+                  <option value="openai_compatible">Chat Completions (OpenAI / OpenRouter / LM Studio / Ollama)</option>
+                  <option value="responses_api">Responses API (OpenAI / OpenRouter /v1/responses)</option>
+                </select>
+              </div>
               <div>
                 <label htmlFor="reasoning_effort" className="text-xs font-medium text-gray-600 block mb-1">Reasoning effort</label>
                 <select

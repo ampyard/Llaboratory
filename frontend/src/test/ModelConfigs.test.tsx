@@ -120,3 +120,33 @@ test('loads reasoning_effort from existing config when editing', async () => {
   const select = screen.getByLabelText('Reasoning effort')
   expect(select).toHaveValue('medium')
 })
+
+test('renders the provider API style selector defaulting to Chat Completions', async () => {
+  renderModelConfigs()
+  fireEvent.click(await screen.findByText('New Config'))
+
+  const styleSelect = screen.getByLabelText('API style')
+  expect(styleSelect).toBeInTheDocument()
+  expect(styleSelect).toHaveValue('openai_compatible')
+})
+
+test('sends provider_kind when creating a Responses API config', async () => {
+  vi.mocked(api.modelConfigs.create).mockResolvedValue({ id: 'new' } as never)
+  renderModelConfigs()
+  fireEvent.click(await screen.findByText('New Config'))
+
+  fireEvent.change(screen.getByPlaceholderText('GPT-4o Mini'), { target: { value: 'Test Model' } })
+  fireEvent.change(screen.getByPlaceholderText('openai/gpt-4o-mini'), { target: { value: 'test-model' } })
+
+  const styleSelect = screen.getByLabelText('API style') as HTMLSelectElement
+  fireEvent.change(styleSelect, { target: { value: 'responses_api' } })
+  expect(styleSelect).toHaveValue('responses_api')
+
+  fireEvent.click(screen.getByText('Save'))
+
+  await waitFor(() => {
+    expect(vi.mocked(api.modelConfigs.create)).toHaveBeenCalledWith(expect.objectContaining({
+      provider_kind: 'responses_api',
+    }))
+  })
+})

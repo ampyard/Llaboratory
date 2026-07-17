@@ -63,13 +63,13 @@
         <li><strong>API layer</strong> — REST endpoints for CRUD operations on tools, model configs, plans, sessions, events, and analysis/reporting.</li>
         <li><strong>Service layer</strong> — Business logic: tool building, plan composition, session management.</li>
         <li><strong>Agent loop</strong> — The core session runner that orchestrates model requests, tool execution, and event logging.</li>
-        <li><strong>Provider adapter</strong> — Normalizes all provider interactions to a common internal representation. v1 ships an OpenAI-compatible adapter.</li>
+        <li><strong>Provider adapter</strong> — Normalizes all provider interactions to a common internal representation. v1 ships two adapters: the OpenAI-compatible Chat Completions adapter and the OpenAI Responses API adapter. Both emit the same normalized turn dict, so the agent loop, logging, and analysis are provider-agnostic.</li>
         <li><strong>Analysis endpoints</strong> — Aggregate per-session and within-plan metrics, expose CSV export, and generate markdown findings reports for plan versions.</li>
         <li><strong>Storage</strong> — SQLite with WAL mode for concurrent access. Migrations are versioned.</li>
       </ul>
 
       <h3>Provider adapter layer</h3>
-      <p>All providers are normalized to one internal representation so the agent loop, logging, and analysis are provider-agnostic. The adapter handles:</p>
+      <p>All providers are normalized to one internal representation so the agent loop, logging, and analysis are provider-agnostic. The harness ships two adapters — a Chat Completions adapter (OpenAI / OpenRouter / LM Studio / Ollama) and a Responses API adapter (OpenAI / OpenRouter <code>/v1/responses</code>) — selected by the model config's <code>provider_kind</code>. Each adapter:</p>
       <ul>
         <li>Mapping normalized messages (<code>system</code>, <code>user</code>, <code>assistant</code>, <code>tool</code>) to provider formats.</li>
         <li>Streaming response parsing — assembling partial text and incremental tool-call arguments from deltas.</li>

@@ -54,7 +54,7 @@ A brand-new instance shows a **Getting Started** checklist instead of an empty s
 ## Workflow
 
 1. **Tool Library** → create fake tools with static or dynamic responses, or load the 9 built-in samples
-2. **Model Configs** → configure a provider endpoint + model snapshot + API key env var
+- **Model Configs** → configure a provider endpoint + model snapshot + API key env var. Pick the **API style**: *Chat Completions* (OpenAI / OpenRouter / LM Studio / Ollama) or *Responses API* (`/v1/responses`, OpenAI and OpenRouter). The harness normalizes both to its internal representation, so everything downstream — the agent loop, logging, and analysis — is identical regardless of which you choose.
 3. **Plans** → compose tools + model + prompts into a versioned testing plan
 4. **Run** → launch a single session and watch the live event stream as reasoning, text, and tool calls arrive — or fire a **batch run** of N repetitions and let them run in the background
 5. **Sessions & Batch Runs** → view history, metrics, per-session event timelines, and per-batch progress

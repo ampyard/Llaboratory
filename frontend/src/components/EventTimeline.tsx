@@ -78,9 +78,9 @@ function EventPayload({ event }: { event: Event }) {
         <p className="text-xs text-gray-400">finish: {p.finish_reason as string}</p>
         {rawResponse && (
           <details className="group mt-1">
-            <summary className="cursor-pointer text-xs font-medium text-indigo-500 hover:text-indigo-700 select-none">
-              <span className="ml-1 group-open:hidden">▶ Raw response ({rawResponse.length} chunk{rawResponse.length !== 1 ? 's' : ''})</span>
-              <span className="ml-1 hidden group-open:inline">▼ Raw response ({rawResponse.length} chunk{rawResponse.length !== 1 ? 's' : ''})</span>
+            <summary className="cursor-pointer text-xs font-medium text-indigo-500 hover:text-indigo-700 select-none list-none flex items-center gap-1">
+              <span className="group-open:hidden">▶ Raw response ({rawResponse.length} chunk{rawResponse.length !== 1 ? 's' : ''})</span>
+              <span className="hidden group-open:inline">▼ Raw response ({rawResponse.length} chunk{rawResponse.length !== 1 ? 's' : ''})</span>
             </summary>
             <pre className="mt-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2 overflow-auto max-h-64 whitespace-pre-wrap">
               {JSON.stringify(rawResponse, null, 2)}
@@ -129,9 +129,9 @@ function EventPayload({ event }: { event: Event }) {
         <p className="text-xs text-gray-500">{msgs.length} message(s) · {(p.tools as unknown[])?.length ?? 0} tool(s)</p>
         {rawPayload && (
           <details className="group">
-            <summary className="cursor-pointer text-xs font-medium text-blue-500 hover:text-blue-700 select-none">
-              <span className="ml-1 group-open:hidden">▶ Raw request payload</span>
-              <span className="ml-1 hidden group-open:inline">▼ Raw request payload</span>
+            <summary className="cursor-pointer text-xs font-medium text-blue-500 hover:text-blue-700 select-none list-none flex items-center gap-1">
+              <span className="group-open:hidden">▶ Raw request payload</span>
+              <span className="hidden group-open:inline">▼ Raw request payload</span>
             </summary>
             <pre className="mt-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2 overflow-auto max-h-64 whitespace-pre-wrap">
               {JSON.stringify(rawPayload, null, 2)}

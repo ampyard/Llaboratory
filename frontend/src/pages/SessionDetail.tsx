@@ -141,7 +141,14 @@ export default function SessionDetail() {
   const isRunning = session?.status === 'running'
   const isPending = session?.status === 'pending'
   const events = session?.events ?? []
-  const displayEvents = events.length > 0 ? events : liveEvents
+  // While the SSE connection is live, liveEvents is the source of truth: the
+  // backend replays full history on connect and then streams new events, so
+  // it's always complete and up to date. `events` only updates on explicit
+  // refetches (start/abort/done), so preferring it whenever it happens to be
+  // non-empty would freeze the view on a stale snapshot mid-run — losing
+  // everything that streams in afterward. Once streaming stops, prefer the
+  // authoritative persisted `events` from the final refetch.
+  const displayEvents = streaming ? liveEvents : (events.length > 0 ? events : liveEvents)
   const totals = session?.totals ?? {}
 
   return (

@@ -97,6 +97,68 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn()
 })
 
+test('turn1 does not vanish when the initial session fetch already has a non-empty events array', async () => {
+  // Reproduces the real root cause: if `session.events` from the very first
+  // fetch is already non-empty (e.g. session_start committed by the time the
+  // request resolves), displayEvents must not freeze on that stale snapshot
+  // for the rest of the run — it must keep following the live SSE stream.
+  vi.mocked(api.sessions.get).mockResolvedValue(
+    baseSession([evt('session_start', 0, { model: 'gpt-4o-mini' })]) as never
+  )
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+  renderDetail(qc)
+  await screen.findByText(/streaming/i)
+  const es = lastInstance!
+
+  act(() => {
+    es.emit('message', { type: 'model_request', sequence_no: 1, payload: { messages: [], tools: [] } })
+    es.emit('message', { type: 'stream_delta', kind: 'reasoning_delta', data: 'Turn one thinking.' })
+    es.emit('message', {
+      type: 'stream_delta',
+      kind: 'tool_args_delta',
+      data: { index: 'c1', name: 'open_document', delta: '{"doc_id":"a"}' },
+    })
+  })
+  expect(screen.getByText('Turn one thinking.')).toBeInTheDocument()
+
+  // Turn 1's model_response lands — this is what resets streamBuffer to null.
+  act(() => {
+    es.emit('message', {
+      type: 'model_response',
+      sequence_no: 2,
+      payload: {
+        content_parts: [
+          { type: 'reasoning', content: 'Turn one thinking.' },
+          { type: 'tool_call', name: 'open_document', raw_args: '{"doc_id":"a"}', tool_call_id: 'c1' },
+        ],
+        finish_reason: 'tool_call',
+      },
+    })
+  })
+
+  // Bug: without the fix, streamBuffer is now null AND displayEvents is
+  // frozen on the stale [session_start] snapshot, so everything vanishes.
+  expect(screen.getByText('Turn one thinking.')).toBeInTheDocument()
+
+  act(() => {
+    es.emit('message', { type: 'tool_call', sequence_no: 3, payload: { name: 'open_document', parsed_args: { doc_id: 'a' } }, tool_call_id: 'c1' })
+    es.emit('message', { type: 'tool_result', sequence_no: 4, payload: { name: 'open_document', result: {} }, tool_call_id: 'c1' })
+  })
+
+  // Standalone tool_call/tool_result cards must render live, not just the
+  // tool_call summary embedded in model_response's content_parts.
+  expect(screen.getAllByText('open_document').length).toBeGreaterThanOrEqual(3)
+
+  act(() => {
+    es.emit('message', { type: 'model_request', sequence_no: 5, payload: { messages: [], tools: [] } })
+    es.emit('message', { type: 'stream_delta', kind: 'reasoning_delta', data: 'Turn two thinking.' })
+  })
+
+  // Turn 2 must be additive, not a replacement for turn 1.
+  expect(screen.getByText('Turn one thinking.')).toBeInTheDocument()
+  expect(screen.getByText('Turn two thinking.')).toBeInTheDocument()
+})
+
 test('turn1 (think->tool->tool->tool) stays visible when a mid-run refetch lands, and through turn2 streaming', async () => {
   vi.mocked(api.sessions.get).mockResolvedValue(baseSession([]) as never)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 0 } } })

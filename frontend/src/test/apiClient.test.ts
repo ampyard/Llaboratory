@@ -133,7 +133,7 @@ describe('sessions API', () => {
     mockFetch.mockReturnValue(okResponse({ id: 'audit-1' }))
     const api = await getApi()
     await api.sessions.delete('sess-1', '')
-    const [_, init] = mockFetch.mock.calls[0]
+    const [, init] = mockFetch.mock.calls[0]
     expect(JSON.parse(init.body)).toEqual({ reason: '' })
   })
 

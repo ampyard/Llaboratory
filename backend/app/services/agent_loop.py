@@ -31,18 +31,46 @@ async def _call_adapter(provider_kind: str | None, **kwargs):
         return await responses_assemble_response(**kwargs)
     return await assemble_response(**kwargs)
 
-# Global registry of SSE queues: session_id -> asyncio.Queue
-_session_queues: dict[str, asyncio.Queue] = {}
+# Global registry of SSE subscriber queues: session_id -> set of queues.
+# Fan-out (rather than a single shared queue) so that a reconnecting or
+# StrictMode-double-mounted EventSource gets its own queue instead of
+# racing another connection to destructively drain a shared one — which
+# used to silently drop whatever the other connection had already
+# dequeued but never flushed to its browser tab.
+_session_queues: dict[str, set[asyncio.Queue]] = {}
 
 
-def get_or_create_queue(session_id: str) -> asyncio.Queue:
-    if session_id not in _session_queues:
-        _session_queues[session_id] = asyncio.Queue()
-    return _session_queues[session_id]
+def get_or_create_queue(session_id: str) -> None:
+    """Ensure a (possibly empty) subscriber set exists for this session.
+
+    Historically this returned the single shared queue; callers only ever
+    used it to make sure events emitted before any client connects aren't
+    dropped. That's now handled by ``stream_session`` replaying persisted
+    events, so this just pre-registers the session.
+    """
+    _session_queues.setdefault(session_id, set())
+
+
+def subscribe(session_id: str) -> asyncio.Queue:
+    """Register a new per-connection queue and return it."""
+    q: asyncio.Queue = asyncio.Queue()
+    _session_queues.setdefault(session_id, set()).add(q)
+    return q
+
+
+def unsubscribe(session_id: str, q: asyncio.Queue) -> None:
+    subscribers = _session_queues.get(session_id)
+    if subscribers:
+        subscribers.discard(q)
 
 
 def remove_queue(session_id: str):
     _session_queues.pop(session_id, None)
+
+
+async def _broadcast(session_id: str, item: dict | None) -> None:
+    for q in list(_session_queues.get(session_id, ())):
+        await q.put(item)
 
 
 def _now_iso() -> str:
@@ -77,17 +105,15 @@ async def _emit(
     db.add(event)
     db.commit()
 
-    # Push to SSE queue if connected
-    q = _session_queues.get(session_id)
-    if q:
-        await q.put({
-            "sequence_no": seq,
-            "type": event_type,
-            "payload": payload,
-            "latency_ms": latency_ms,
-            "token_usage": token_usage,
-            "tool_call_id": tool_call_id,
-        })
+    # Push to any attached SSE subscribers
+    await _broadcast(session_id, {
+        "sequence_no": seq,
+        "type": event_type,
+        "payload": payload,
+        "latency_ms": latency_ms,
+        "token_usage": token_usage,
+        "tool_call_id": tool_call_id,
+    })
 
     return event
 
@@ -227,9 +253,7 @@ async def _run(session_id: str, db: DBSession) -> None:
             # Streaming deltas forwarded to SSE queue
 
             async def _stream_cb(kind: str, data: Any):
-                q = _session_queues.get(session_id)
-                if q:
-                    await q.put({"type": "stream_delta", "kind": kind, "data": data})
+                await _broadcast(session_id, {"type": "stream_delta", "kind": kind, "data": data})
 
             req_start = time.monotonic()
             try:
@@ -478,7 +502,5 @@ async def _run(session_id: str, db: DBSession) -> None:
     session.totals = json.dumps(totals)
     db.commit()
 
-    # Signal SSE stream to close
-    q = _session_queues.get(session_id)
-    if q:
-        await q.put(None)
+    # Signal all attached SSE streams to close
+    await _broadcast(session_id, None)

@@ -6,6 +6,7 @@ import { api } from '../api/client'
 import StatusBadge from '../components/StatusBadge'
 import EventTimeline from '../components/EventTimeline'
 import type { Event } from '../types'
+import type { StreamBlock } from '../components/EventTimeline'
 
 export default function SessionDetail() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -25,7 +26,7 @@ export default function SessionDetail() {
 
   const [liveEvents, setLiveEvents] = useState<Event[]>([])
   const [streaming, setStreaming] = useState(false)
-  const [streamBuffer, setStreamBuffer] = useState<{ reasoning: string; text: string } | null>(null)
+  const [streamBuffer, setStreamBuffer] = useState<StreamBlock[] | null>(null)
   const esRef = useRef<EventSource | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -42,16 +43,33 @@ export default function SessionDetail() {
 
       if (data.type === 'stream_delta') {
         const { kind, data: payload } = data
-        if (kind === 'reasoning_delta') {
-          setStreamBuffer(prev => ({
-            reasoning: (prev?.reasoning ?? '') + (payload as string),
-            text: prev?.text ?? '',
-          }))
-        } else if (kind === 'text_delta') {
-          setStreamBuffer(prev => ({
-            reasoning: prev?.reasoning ?? '',
-            text: (prev?.text ?? '') + (payload as string),
-          }))
+        if (kind === 'reasoning_delta' || kind === 'text_delta') {
+          const blockType = kind === 'reasoning_delta' ? 'reasoning' : 'text'
+          setStreamBuffer(prev => {
+            const blocks = prev ? [...prev] : []
+            const last = blocks[blocks.length - 1]
+            // Append to the last block only if it's the same kind — a block
+            // boundary (e.g. a tool call) in between starts a fresh block
+            // instead of merging into whatever came before it.
+            if (last && last.type === blockType) {
+              blocks[blocks.length - 1] = { ...last, content: last.content + (payload as string) }
+            } else {
+              blocks.push({ type: blockType, content: payload as string })
+            }
+            return blocks
+          })
+        } else if (kind === 'tool_args_delta') {
+          const { index, name, delta } = payload as { index: string | number; name: string; delta: string }
+          setStreamBuffer(prev => {
+            const blocks = prev ? [...prev] : []
+            const last = blocks[blocks.length - 1]
+            if (last && last.type === 'tool_call' && last.index === index) {
+              blocks[blocks.length - 1] = { ...last, name, args: last.args + delta }
+            } else {
+              blocks.push({ type: 'tool_call', index, name, args: delta })
+            }
+            return blocks
+          })
         }
         return
       }
@@ -61,17 +79,24 @@ export default function SessionDetail() {
         setStreamBuffer(null)
       }
 
-      setLiveEvents(prev => [...prev, {
-        id: `live-${data.sequence_no}`,
-        session_id: sessionId!,
-        sequence_no: data.sequence_no,
-        timestamp: new Date().toISOString(),
-        type: data.type,
-        payload: data.payload ?? {},
-        latency_ms: data.latency_ms ?? null,
-        token_usage: data.token_usage ?? null,
-        tool_call_id: data.tool_call_id ?? null,
-      }])
+      setLiveEvents(prev => {
+        // A reconnect (native EventSource retry, or a fresh SSE connection)
+        // replays already-persisted events from the server so nothing is
+        // lost — but that means the same sequence_no can arrive twice on
+        // this same connection. Skip it rather than rendering a duplicate.
+        if (prev.some(ev => ev.sequence_no === data.sequence_no)) return prev
+        return [...prev, {
+          id: `live-${data.sequence_no}`,
+          session_id: sessionId!,
+          sequence_no: data.sequence_no,
+          timestamp: new Date().toISOString(),
+          type: data.type,
+          payload: data.payload ?? {},
+          latency_ms: data.latency_ms ?? null,
+          token_usage: data.token_usage ?? null,
+          tool_call_id: data.tool_call_id ?? null,
+        }]
+      })
     })
 
     es.addEventListener('done', () => {
@@ -116,7 +141,14 @@ export default function SessionDetail() {
   const isRunning = session?.status === 'running'
   const isPending = session?.status === 'pending'
   const events = session?.events ?? []
-  const displayEvents = events.length > 0 ? events : liveEvents
+  // While the SSE connection is live, liveEvents is the source of truth: the
+  // backend replays full history on connect and then streams new events, so
+  // it's always complete and up to date. `events` only updates on explicit
+  // refetches (start/abort/done), so preferring it whenever it happens to be
+  // non-empty would freeze the view on a stale snapshot mid-run — losing
+  // everything that streams in afterward. Once streaming stops, prefer the
+  // authoritative persisted `events` from the final refetch.
+  const displayEvents = streaming ? liveEvents : (events.length > 0 ? events : liveEvents)
   const totals = session?.totals ?? {}
 
   return (

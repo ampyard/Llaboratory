@@ -246,13 +246,50 @@ async def assemble_response(
             "raw_response": [ ... ],
         }
     """
-    text_buffer = ""
-    reasoning_buffer = ""
+    # content_parts is built incrementally, in true stream order, so that a
+    # reasoning segment that resumes after a tool call becomes its own block
+    # instead of being flattened into one continuous reasoning buffer with the
+    # tool call always trailing at the end.
+    #
+    # A delta only continues the CURRENTLY open block — matched on kind and
+    # item_id together. We deliberately do NOT fall back to looking up any
+    # earlier block by item_id: some servers keep reusing the same reasoning
+    # item_id for a conceptually continued reasoning item even after a tool
+    # call interrupts it, and if we honored that we'd merge the pre- and
+    # post-tool-call segments back together, silently undoing the boundary
+    # reset below. Whatever block was open before a tool call is always
+    # closed for good; a later delta — even one sharing the old item_id —
+    # always opens a fresh block.
+    content_parts: list[dict] = []
+    current_block: dict | None = None
+    current_block_kind: str | None = None
+    current_block_item_id: str | None = None
+
     # function-call accumulation keyed by call_id
     tc_buffers: dict[str, dict] = {}
+    tc_blocks: dict[str, dict] = {}
+    tc_call_order: list[str] = []
     finish_reason_raw: str | None = None
     token_usage: dict = {}
     raw_events: list[dict] = []
+
+    def _text_block(item_id: str | None) -> dict:
+        nonlocal current_block, current_block_kind, current_block_item_id
+        if current_block_kind == "text" and current_block_item_id == item_id:
+            return current_block
+        block = {"type": "text", "content": ""}
+        content_parts.append(block)
+        current_block, current_block_kind, current_block_item_id = block, "text", item_id
+        return block
+
+    def _reasoning_block(item_id: str | None) -> dict:
+        nonlocal current_block, current_block_kind, current_block_item_id
+        if current_block_kind == "reasoning" and current_block_item_id == item_id:
+            return current_block
+        block = {"type": "reasoning", "content": ""}
+        content_parts.append(block)
+        current_block, current_block_kind, current_block_item_id = block, "reasoning", item_id
+        return block
 
     raw_request = _build_responses_payload(model, messages, tools, params)
 
@@ -268,19 +305,33 @@ async def assemble_response(
 
         elif etype == "response.output_item.added":
             item = event.get("item") or {}
-            if item.get("type") == "function_call":
+            item_type = item.get("type")
+            if item_type == "function_call":
                 call_id = item.get("call_id") or str(uuid.uuid4())
                 tc_buffers[call_id] = {
                     "tool_call_id": call_id,
                     "name": item.get("name", ""),
                     "args_buffer": item.get("arguments", "") or "",
                 }
+                block = {"type": "tool_call", "tool_call_id": call_id, "name": item.get("name", ""), "raw_args": item.get("arguments", "") or ""}
+                tc_blocks[call_id] = block
+                tc_call_order.append(call_id)
+                content_parts.append(block)
+                # A tool call always ends whatever reasoning/text block preceded it.
+                current_block, current_block_kind, current_block_item_id = None, None, None
+            elif item_type in ("reasoning", "message"):
+                # A new item boundary means the next delta must not merge into
+                # whatever block was previously open, even without an item_id.
+                current_block, current_block_kind, current_block_item_id = None, None, None
 
         elif etype == "response.function_call_arguments.delta":
             call_id = event.get("call_id")
             delta = event.get("delta", "")
             if call_id and call_id in tc_buffers and delta:
                 tc_buffers[call_id]["args_buffer"] += delta
+                block = tc_blocks.get(call_id)
+                if block is not None:
+                    block["raw_args"] += delta
                 if stream_callback:
                     await stream_callback("tool_args_delta", {
                         "index": call_id,
@@ -291,14 +342,14 @@ async def assemble_response(
         elif etype == "response.output_text.delta":
             delta = event.get("delta", "")
             if delta:
-                text_buffer += delta
+                _text_block(event.get("item_id"))["content"] += delta
                 if stream_callback:
                     await stream_callback("text_delta", delta)
 
         elif etype == "response.reasoning_text.delta":
             delta = event.get("delta", "")
             if delta:
-                reasoning_buffer += delta
+                _reasoning_block(event.get("item_id"))["content"] += delta
                 if stream_callback:
                     await stream_callback("reasoning_delta", delta)
 
@@ -363,17 +414,11 @@ async def assemble_response(
         # No completion event seen (e.g. stream closed early): infer from tool calls.
         finish_reason = "tool_call" if tc_buffers else "end_turn"
 
-    # Assemble content parts + tool calls
+    # Finalize tool calls: parse accumulated args and fill in the placeholder
+    # blocks that were appended to content_parts in stream order.
     tool_calls = []
-    content_parts = []
 
-    if reasoning_buffer:
-        content_parts.append({"type": "reasoning", "content": reasoning_buffer})
-
-    if text_buffer:
-        content_parts.append({"type": "text", "content": text_buffer})
-
-    for call_id in sorted(tc_buffers.keys()):
+    for call_id in tc_call_order:
         buf = tc_buffers[call_id]
         raw_args = buf["args_buffer"]
         try:
@@ -387,7 +432,7 @@ async def assemble_response(
             "parsed_args": parsed_args,
         }
         tool_calls.append(tc)
-        content_parts.append({"type": "tool_call", **tc})
+        tc_blocks[call_id]["parsed_args"] = parsed_args
 
     return {
         "content_parts": content_parts,

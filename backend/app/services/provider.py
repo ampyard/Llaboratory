@@ -104,12 +104,19 @@ async def assemble_response(
         "raw_response": [ ... ],  # raw SSE JSON chunks from provider
     }
     """
-    text_buffer = ""
+    # content_parts is built incrementally, in true stream order, so that a
+    # reasoning segment that resumes after a tool call becomes its own block
+    # instead of being flattened into one continuous reasoning buffer with the
+    # tool call always trailing at the end.
+    content_parts: list[dict] = []
+    current_block: dict | None = None
+    current_block_kind: str | None = None
+
     # tool_call accumulation keyed by index
     tc_buffers: dict[int, dict] = {}
+    tc_blocks: dict[int, dict] = {}
     finish_reason_raw = None
     token_usage: dict = {}
-    reasoning_buffer = ""
     raw_chunks: list[dict] = []
 
     # Build raw request payload (mirrors what stream_completion sends, minus secrets)
@@ -134,13 +141,21 @@ async def assemble_response(
         # Reasoning content (some providers send "reasoning", others "reasoning_content")
         reasoning_delta = delta.get("reasoning") or delta.get("reasoning_content")
         if reasoning_delta:
-            reasoning_buffer += reasoning_delta
+            if current_block_kind != "reasoning":
+                current_block = {"type": "reasoning", "content": ""}
+                content_parts.append(current_block)
+                current_block_kind = "reasoning"
+            current_block["content"] += reasoning_delta
             if stream_callback:
                 await stream_callback("reasoning_delta", reasoning_delta)
 
         # Text content
         if delta.get("content"):
-            text_buffer += delta["content"]
+            if current_block_kind != "text":
+                current_block = {"type": "text", "content": ""}
+                content_parts.append(current_block)
+                current_block_kind = "text"
+            current_block["content"] += delta["content"]
             if stream_callback:
                 await stream_callback("text_delta", delta["content"])
 
@@ -153,12 +168,21 @@ async def assemble_response(
                     "name": "",
                     "args_buffer": "",
                 }
+                block = {"type": "tool_call", "tool_call_id": tc_buffers[idx]["tool_call_id"], "name": "", "raw_args": ""}
+                tc_blocks[idx] = block
+                content_parts.append(block)
+                # A tool call always ends whatever reasoning/text block preceded it,
+                # so a reasoning segment resuming afterward starts a fresh block.
+                current_block, current_block_kind = None, None
             if tc_delta.get("id"):
                 tc_buffers[idx]["tool_call_id"] = tc_delta["id"]
+                tc_blocks[idx]["tool_call_id"] = tc_delta["id"]
             if tc_delta.get("function", {}).get("name"):
                 tc_buffers[idx]["name"] += tc_delta["function"]["name"]
+                tc_blocks[idx]["name"] += tc_delta["function"]["name"]
             if tc_delta.get("function", {}).get("arguments"):
                 tc_buffers[idx]["args_buffer"] += tc_delta["function"]["arguments"]
+                tc_blocks[idx]["raw_args"] += tc_delta["function"]["arguments"]
                 if stream_callback:
                     await stream_callback("tool_args_delta", {
                         "index": idx,
@@ -189,15 +213,9 @@ async def assemble_response(
     }
     finish_reason = finish_map.get(finish_reason_raw, "end_turn")
 
-    # Assemble tool calls
+    # Finalize tool calls: parse accumulated args and fill in the placeholder
+    # blocks that were appended to content_parts in stream order.
     tool_calls = []
-    content_parts = []
-
-    if reasoning_buffer:
-        content_parts.append({"type": "reasoning", "content": reasoning_buffer})
-
-    if text_buffer:
-        content_parts.append({"type": "text", "content": text_buffer})
 
     for idx in sorted(tc_buffers.keys()):
         buf = tc_buffers[idx]
@@ -214,7 +232,7 @@ async def assemble_response(
             "parsed_args": parsed_args,
         }
         tool_calls.append(tc)
-        content_parts.append({"type": "tool_call", **tc})
+        tc_blocks[idx]["parsed_args"] = parsed_args
 
     return {
         "content_parts": content_parts,

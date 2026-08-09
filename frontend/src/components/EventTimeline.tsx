@@ -149,13 +149,15 @@ function EventPayload({ event }: { event: Event }) {
   )
 }
 
-interface StreamBuffer {
-  reasoning: string
-  text: string
-}
+// Ordered blocks mirror the eventual `content_parts` shape so the live view
+// shows reasoning/text/tool-call segments in the order they actually
+// streamed, instead of one merged reasoning blob with tool calls always last.
+export type StreamBlock =
+  | { type: 'reasoning'; content: string }
+  | { type: 'text'; content: string }
+  | { type: 'tool_call'; index: string | number; name: string; args: string }
 
-function LiveStreamCard({ buffer }: { buffer: StreamBuffer }) {
-  const hasContent = buffer.reasoning || buffer.text
+function LiveStreamCard({ blocks }: { blocks: StreamBlock[] }) {
   return (
     <div className="flex gap-3 py-3">
       <div className="w-6 h-6 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center shrink-0 mt-0.5">
@@ -166,17 +168,29 @@ function LiveStreamCard({ buffer }: { buffer: StreamBuffer }) {
           <span className="text-xs font-semibold font-mono text-indigo-400">model_response</span>
           <span className="text-xs text-indigo-300 animate-pulse">streaming…</span>
         </div>
-        {hasContent ? (
+        {blocks.length > 0 ? (
           <div className="space-y-1">
-            {buffer.reasoning && (
-              <div className="bg-purple-50 border border-purple-100 rounded p-2">
-                <p className="text-xs font-semibold text-purple-500 mb-1">thinking</p>
-                <p className="text-xs text-purple-700 whitespace-pre-wrap">{buffer.reasoning}</p>
-              </div>
-            )}
-            {buffer.text && (
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{buffer.text}</p>
-            )}
+            {blocks.map((block, i) => {
+              if (block.type === 'reasoning') {
+                return (
+                  <div key={i} className="bg-purple-50 border border-purple-100 rounded p-2">
+                    <p className="text-xs font-semibold text-purple-500 mb-1">thinking</p>
+                    <p className="text-xs text-purple-700 whitespace-pre-wrap">{block.content}</p>
+                  </div>
+                )
+              }
+              if (block.type === 'text') {
+                return (
+                  <p key={i} className="text-sm text-gray-700 whitespace-pre-wrap">{block.content}</p>
+                )
+              }
+              return (
+                <div key={i} className="bg-amber-50 rounded p-2 text-xs font-mono">
+                  <span className="text-amber-700 font-semibold">{block.name || '…'}</span>
+                  <span className="text-gray-500 ml-2">{block.args}</span>
+                </div>
+              )
+            })}
           </div>
         ) : (
           <p className="text-xs text-gray-400 italic">Waiting for model…</p>
@@ -191,7 +205,7 @@ export default function EventTimeline({
   streamBuffer,
 }: {
   events: Event[]
-  streamBuffer?: { reasoning: string; text: string } | null
+  streamBuffer?: StreamBlock[] | null
 }) {
   if (events.length === 0 && !streamBuffer) {
     return <p className="text-sm text-gray-400 py-4 text-center">No events yet.</p>
@@ -201,7 +215,7 @@ export default function EventTimeline({
       {events.map(ev => (
         <EventCard key={ev.id} event={ev} />
       ))}
-      {streamBuffer && <LiveStreamCard buffer={streamBuffer} />}
+      {streamBuffer && <LiveStreamCard blocks={streamBuffer} />}
     </div>
   )
 }

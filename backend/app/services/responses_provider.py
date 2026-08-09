@@ -250,11 +250,17 @@ async def assemble_response(
     # reasoning segment that resumes after a tool call becomes its own block
     # instead of being flattened into one continuous reasoning buffer with the
     # tool call always trailing at the end.
+    #
+    # A delta only continues the CURRENTLY open block — matched on kind and
+    # item_id together. We deliberately do NOT fall back to looking up any
+    # earlier block by item_id: some servers keep reusing the same reasoning
+    # item_id for a conceptually continued reasoning item even after a tool
+    # call interrupts it, and if we honored that we'd merge the pre- and
+    # post-tool-call segments back together, silently undoing the boundary
+    # reset below. Whatever block was open before a tool call is always
+    # closed for good; a later delta — even one sharing the old item_id —
+    # always opens a fresh block.
     content_parts: list[dict] = []
-    # Text/reasoning blocks keyed by item_id when the server provides one;
-    # servers that omit item_id fall back to reusing the most recently opened
-    # block of the same kind (reset whenever a different kind of item starts).
-    item_blocks: dict[str, dict] = {}
     current_block: dict | None = None
     current_block_kind: str | None = None
     current_block_item_id: str | None = None
@@ -269,29 +275,19 @@ async def assemble_response(
 
     def _text_block(item_id: str | None) -> dict:
         nonlocal current_block, current_block_kind, current_block_item_id
-        if item_id and item_id in item_blocks:
-            block = item_blocks[item_id]
-        elif current_block_kind == "text" and (item_id is None or item_id == current_block_item_id):
-            block = current_block
-        else:
-            block = {"type": "text", "content": ""}
-            content_parts.append(block)
-            if item_id:
-                item_blocks[item_id] = block
+        if current_block_kind == "text" and current_block_item_id == item_id:
+            return current_block
+        block = {"type": "text", "content": ""}
+        content_parts.append(block)
         current_block, current_block_kind, current_block_item_id = block, "text", item_id
         return block
 
     def _reasoning_block(item_id: str | None) -> dict:
         nonlocal current_block, current_block_kind, current_block_item_id
-        if item_id and item_id in item_blocks:
-            block = item_blocks[item_id]
-        elif current_block_kind == "reasoning" and (item_id is None or item_id == current_block_item_id):
-            block = current_block
-        else:
-            block = {"type": "reasoning", "content": ""}
-            content_parts.append(block)
-            if item_id:
-                item_blocks[item_id] = block
+        if current_block_kind == "reasoning" and current_block_item_id == item_id:
+            return current_block
+        block = {"type": "reasoning", "content": ""}
+        content_parts.append(block)
         current_block, current_block_kind, current_block_item_id = block, "reasoning", item_id
         return block
 

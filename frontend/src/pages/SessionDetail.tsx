@@ -79,17 +79,24 @@ export default function SessionDetail() {
         setStreamBuffer(null)
       }
 
-      setLiveEvents(prev => [...prev, {
-        id: `live-${data.sequence_no}`,
-        session_id: sessionId!,
-        sequence_no: data.sequence_no,
-        timestamp: new Date().toISOString(),
-        type: data.type,
-        payload: data.payload ?? {},
-        latency_ms: data.latency_ms ?? null,
-        token_usage: data.token_usage ?? null,
-        tool_call_id: data.tool_call_id ?? null,
-      }])
+      setLiveEvents(prev => {
+        // A reconnect (native EventSource retry, or a fresh SSE connection)
+        // replays already-persisted events from the server so nothing is
+        // lost — but that means the same sequence_no can arrive twice on
+        // this same connection. Skip it rather than rendering a duplicate.
+        if (prev.some(ev => ev.sequence_no === data.sequence_no)) return prev
+        return [...prev, {
+          id: `live-${data.sequence_no}`,
+          session_id: sessionId!,
+          sequence_no: data.sequence_no,
+          timestamp: new Date().toISOString(),
+          type: data.type,
+          payload: data.payload ?? {},
+          latency_ms: data.latency_ms ?? null,
+          token_usage: data.token_usage ?? null,
+          tool_call_id: data.tool_call_id ?? null,
+        }]
+      })
     })
 
     es.addEventListener('done', () => {

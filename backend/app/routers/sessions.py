@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session as DBSession
 from app.database import get_db, SessionLocal
 from app.models import Session, PlanVersion, AuditLog
 from app.schemas import SessionCreate, SessionOut, SessionDetailOut, EventOut, SessionDeleteBody, AuditLogOut
-from app.services.agent_loop import run_session, get_or_create_queue
+from app.services.agent_loop import run_session, get_or_create_queue, subscribe, unsubscribe
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -107,21 +107,42 @@ async def stream_session(session_id: str, db: DBSession = Depends(get_db)):
     if not session:
         raise HTTPException(404, "Session not found")
 
-    queue = get_or_create_queue(session_id)
+    # Subscribe before replaying history so nothing emitted in between is
+    # missed — any overlap is deduped below via sequence_no.
+    queue = subscribe(session_id)
 
     async def event_generator() -> AsyncGenerator[str, None]:
-        while True:
-            try:
-                item = await asyncio.wait_for(queue.get(), timeout=30.0)
-            except asyncio.TimeoutError:
-                yield "event: ping\ndata: {}\n\n"
-                continue
+        last_seq = -1
+        try:
+            for ev in session.events:
+                payload = {
+                    "sequence_no": ev.sequence_no,
+                    "type": ev.type,
+                    "payload": json.loads(ev.payload),
+                    "latency_ms": ev.latency_ms,
+                    "token_usage": json.loads(ev.token_usage) if ev.token_usage else None,
+                    "tool_call_id": ev.tool_call_id,
+                }
+                yield f"event: message\ndata: {json.dumps(payload)}\n\n"
+                last_seq = ev.sequence_no
 
-            if item is None:
-                yield "event: done\ndata: {}\n\n"
-                break
+            while True:
+                try:
+                    item = await asyncio.wait_for(queue.get(), timeout=30.0)
+                except asyncio.TimeoutError:
+                    yield "event: ping\ndata: {}\n\n"
+                    continue
 
-            yield f"event: message\ndata: {json.dumps(item)}\n\n"
+                if item is None:
+                    yield "event: done\ndata: {}\n\n"
+                    break
+
+                if item.get("type") != "stream_delta" and item.get("sequence_no", -1) <= last_seq:
+                    continue  # already delivered via history replay
+
+                yield f"event: message\ndata: {json.dumps(item)}\n\n"
+        finally:
+            unsubscribe(session_id, queue)
 
     return StreamingResponse(
         event_generator(),

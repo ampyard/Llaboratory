@@ -6,6 +6,7 @@ import { api } from '../api/client'
 import StatusBadge from '../components/StatusBadge'
 import EventTimeline from '../components/EventTimeline'
 import type { Event } from '../types'
+import type { StreamBlock } from '../components/EventTimeline'
 
 export default function SessionDetail() {
   const { sessionId } = useParams<{ sessionId: string }>()
@@ -25,7 +26,7 @@ export default function SessionDetail() {
 
   const [liveEvents, setLiveEvents] = useState<Event[]>([])
   const [streaming, setStreaming] = useState(false)
-  const [streamBuffer, setStreamBuffer] = useState<{ reasoning: string; text: string } | null>(null)
+  const [streamBuffer, setStreamBuffer] = useState<StreamBlock[] | null>(null)
   const esRef = useRef<EventSource | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -42,16 +43,33 @@ export default function SessionDetail() {
 
       if (data.type === 'stream_delta') {
         const { kind, data: payload } = data
-        if (kind === 'reasoning_delta') {
-          setStreamBuffer(prev => ({
-            reasoning: (prev?.reasoning ?? '') + (payload as string),
-            text: prev?.text ?? '',
-          }))
-        } else if (kind === 'text_delta') {
-          setStreamBuffer(prev => ({
-            reasoning: prev?.reasoning ?? '',
-            text: (prev?.text ?? '') + (payload as string),
-          }))
+        if (kind === 'reasoning_delta' || kind === 'text_delta') {
+          const blockType = kind === 'reasoning_delta' ? 'reasoning' : 'text'
+          setStreamBuffer(prev => {
+            const blocks = prev ? [...prev] : []
+            const last = blocks[blocks.length - 1]
+            // Append to the last block only if it's the same kind — a block
+            // boundary (e.g. a tool call) in between starts a fresh block
+            // instead of merging into whatever came before it.
+            if (last && last.type === blockType) {
+              blocks[blocks.length - 1] = { ...last, content: last.content + (payload as string) }
+            } else {
+              blocks.push({ type: blockType, content: payload as string })
+            }
+            return blocks
+          })
+        } else if (kind === 'tool_args_delta') {
+          const { index, name, delta } = payload as { index: string | number; name: string; delta: string }
+          setStreamBuffer(prev => {
+            const blocks = prev ? [...prev] : []
+            const last = blocks[blocks.length - 1]
+            if (last && last.type === 'tool_call' && last.index === index) {
+              blocks[blocks.length - 1] = { ...last, name, args: last.args + delta }
+            } else {
+              blocks.push({ type: 'tool_call', index, name, args: delta })
+            }
+            return blocks
+          })
         }
         return
       }

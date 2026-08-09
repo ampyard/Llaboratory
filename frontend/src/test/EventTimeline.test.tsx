@@ -86,6 +86,24 @@ test('renders tool_result event', () => {
   expect(screen.getAllByText('my_tool').length).toBeGreaterThan(0)
 })
 
+test('renders live stream blocks in order, tool call between reasoning segments', () => {
+  render(
+    <EventTimeline
+      events={[]}
+      streamBuffer={[
+        { type: 'reasoning', content: 'First thought.' },
+        { type: 'tool_call', index: 'call_1', name: 'lookup', args: '{"q":"x"}' },
+        { type: 'reasoning', content: 'Second thought.' },
+      ]}
+    />
+  )
+  expect(screen.getByText('First thought.')).toBeInTheDocument()
+  expect(screen.getByText('lookup')).toBeInTheDocument()
+  expect(screen.getByText('Second thought.')).toBeInTheDocument()
+  // Not merged into one block: two separate "thinking" panels are rendered.
+  expect(screen.getAllByText('thinking').length).toBe(2)
+})
+
 test('renders multiple events in sequence order', () => {
   const events = [
     makeEvent({ sequence_no: 0, type: 'session_start' }),

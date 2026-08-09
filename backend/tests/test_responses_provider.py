@@ -152,6 +152,37 @@ async def test_assemble_response_tool_call_with_deltas():
     assert resp["token_usage"].get("reasoning_tokens") == 2
 
 
+async def test_assemble_response_reasoning_tool_call_reasoning_stays_separate():
+    """Reasoning that resumes after a tool call must become its own block,
+    positioned after the tool call — not merged into one continuous block
+    with the tool call always trailing at the end (issue #30)."""
+    events = [
+        {"type": "response.output_item.added", "item": {"type": "reasoning", "id": "r1"}},
+        {"type": "response.reasoning_text.delta", "item_id": "r1", "delta": "First "},
+        {"type": "response.reasoning_text.delta", "item_id": "r1", "delta": "thought."},
+        {"type": "response.output_item.added", "item": {
+            "type": "function_call", "call_id": "call_1", "name": "lookup",
+        }},
+        {"type": "response.function_call_arguments.delta", "call_id": "call_1", "delta": '{"q":"x"}'},
+        {"type": "response.output_item.added", "item": {"type": "reasoning", "id": "r2"}},
+        {"type": "response.reasoning_text.delta", "item_id": "r2", "delta": "Second "},
+        {"type": "response.reasoning_text.delta", "item_id": "r2", "delta": "thought."},
+        {"type": "response.completed", "response": {"status": "completed", "usage": {}}},
+    ]
+    with _patch_stream(events):
+        resp = await assemble_response(
+            base_url="https://api.openai.com/v1", api_key_env="FAKE",
+            model="gpt-4o", messages=[{"role": "user", "content": "hi"}],
+            tools=[{"type": "function", "function": {"name": "lookup", "parameters": {}}}],
+            params={}, stream_callback=None,
+        )
+    parts = resp["content_parts"]
+    assert [p["type"] for p in parts] == ["reasoning", "tool_call", "reasoning"]
+    assert parts[0]["content"] == "First thought."
+    assert parts[1]["name"] == "lookup"
+    assert parts[2]["content"] == "Second thought."
+
+
 async def test_assemble_response_length_finish_reason():
     events = [
         {"type": "response.output_text.delta", "delta": "partial"},

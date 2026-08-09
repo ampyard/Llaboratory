@@ -15,6 +15,7 @@ class MockEventSource {
   listeners: Record<string, ((e: MessageEvent) => void)[]> = {}
   close = vi.fn()
   constructor(_url: string | URL) {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- test mock needs to expose the instance it constructs
     lastInstance = this
   }
   addEventListener(type: string, listener: EventListenerOrEventListenerObject) {

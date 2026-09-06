@@ -103,7 +103,7 @@ def _map_messages_to_input(messages: list[dict]) -> tuple[str, list[dict]]:
                     fn = tc.get("function", {})
                     raw_args = fn.get("arguments", "{}")
                     if not isinstance(raw_args, str):
-                        raw_args = "{}"
+                        raw_args = json.dumps(raw_args)
                     input_items.append({
                         "type": "function_call",
                         "call_id": tc.get("id") or str(uuid.uuid4()),

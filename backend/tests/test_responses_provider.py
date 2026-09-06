@@ -27,6 +27,7 @@ def test_map_tools_to_response_format():
     assert out[0]["type"] == "function"
     assert out[0]["name"] == "get_weather"
     assert out[0]["parameters"]["properties"]["city"]["type"] == "string"
+    assert out[0]["strict"] is True
 
 
 def test_map_messages_pulls_system_into_instructions():

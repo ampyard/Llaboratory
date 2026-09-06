@@ -19,7 +19,9 @@ function paramsToSchema(params: Param[]): Record<string, unknown> {
     props[p.name] = { type: p.type, description: p.description }
     if (p.required) required.push(p.name)
   }
-  return { type: 'object', properties: props, required }
+  const schema: Record<string, unknown> = { type: 'object', properties: props }
+  if (required.length > 0) schema.required = required
+  return schema
 }
 
 function schemaToParams(schema: Record<string, unknown>): Param[] {

@@ -48,11 +48,13 @@ def _map_tools_to_response_format(tools: list[dict]) -> list[dict]:
     out: list[dict] = []
     for t in tools:
         fn = t.get("function", {})
+        params = fn.get("parameters", {"type": "object", "properties": {}})
         out.append({
             "type": "function",
             "name": fn.get("name", ""),
             "description": fn.get("description", ""),
-            "parameters": fn.get("parameters", {"type": "object", "properties": {}}),
+            "parameters": params,
+            "strict": True,
         })
     return out
 
@@ -103,7 +105,7 @@ def _map_messages_to_input(messages: list[dict]) -> tuple[str, list[dict]]:
                     fn = tc.get("function", {})
                     raw_args = fn.get("arguments", "{}")
                     if not isinstance(raw_args, str):
-                        raw_args = "{}"
+                        raw_args = json.dumps(raw_args)
                     input_items.append({
                         "type": "function_call",
                         "call_id": tc.get("id") or str(uuid.uuid4()),
@@ -308,12 +310,15 @@ async def assemble_response(
             item_type = item.get("type")
             if item_type == "function_call":
                 call_id = item.get("call_id") or str(uuid.uuid4())
+                init_args = item.get("arguments", "") or ""
+                if not isinstance(init_args, str):
+                    init_args = json.dumps(init_args)
                 tc_buffers[call_id] = {
                     "tool_call_id": call_id,
                     "name": item.get("name", ""),
-                    "args_buffer": item.get("arguments", "") or "",
+                    "args_buffer": init_args,
                 }
-                block = {"type": "tool_call", "tool_call_id": call_id, "name": item.get("name", ""), "raw_args": item.get("arguments", "") or ""}
+                block = {"type": "tool_call", "tool_call_id": call_id, "name": item.get("name", ""), "raw_args": init_args}
                 tc_blocks[call_id] = block
                 tc_call_order.append(call_id)
                 content_parts.append(block)
@@ -370,6 +375,21 @@ async def assemble_response(
                 if u.get("reasoning_tokens"):
                     token_usage["reasoning_tokens"] = u["reasoning_tokens"]
 
+            # LM Studio may deliver full function call arguments in the
+            # completed response's output array instead of streaming them as
+            # deltas. Backfill any empty args_buffer entries from there.
+            for output_item in resp.get("output") or []:
+                if output_item.get("type") == "function_call":
+                    oc_id = output_item.get("call_id")
+                    oc_args = output_item.get("arguments", "")
+                    if oc_id and oc_id in tc_buffers and not tc_buffers[oc_id]["args_buffer"].strip():
+                        if isinstance(oc_args, dict):
+                            oc_args = json.dumps(oc_args)
+                        tc_buffers[oc_id]["args_buffer"] = oc_args
+                        block = tc_blocks.get(oc_id)
+                        if block is not None:
+                            block["raw_args"] = oc_args
+
             # Override finish reason from completion status if not already set
             if finish_reason_raw is None:
                 status = resp.get("status")
@@ -424,7 +444,7 @@ async def assemble_response(
         try:
             parsed_args = json.loads(raw_args) if raw_args.strip() else {}
         except json.JSONDecodeError:
-            parsed_args = {"_raw": raw_args}
+            parsed_args = {}
         tc = {
             "tool_call_id": buf["tool_call_id"],
             "name": buf["name"],

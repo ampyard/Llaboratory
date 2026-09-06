@@ -27,6 +27,7 @@ def test_map_tools_to_response_format():
     assert out[0]["type"] == "function"
     assert out[0]["name"] == "get_weather"
     assert out[0]["parameters"]["properties"]["city"]["type"] == "string"
+    assert out[0]["strict"] is True
 
 
 def test_map_messages_pulls_system_into_instructions():
@@ -150,6 +151,62 @@ async def test_assemble_response_tool_call_with_deltas():
     assert tc["name"] == "lookup"
     assert tc["parsed_args"] == {"q": "hi"}
     assert resp["token_usage"].get("reasoning_tokens") == 2
+
+
+async def test_assemble_response_tool_call_args_backfilled_from_completed():
+    """LM Studio delivers full function call arguments in the response.completed
+    output array instead of streaming them as deltas. Verify backfill works."""
+    events = [
+        {"type": "response.output_item.added", "item": {
+            "type": "function_call", "call_id": "call_lm", "name": "message_boss",
+        }},
+        # No argument deltas — LM Studio doesn't stream them
+        {"type": "response.completed", "response": {
+            "status": "completed",
+            "usage": {"input_tokens": 50, "output_tokens": 10},
+            "output": [
+                {"type": "function_call", "call_id": "call_lm", "name": "message_boss",
+                 "arguments": '{"text":"Hello boss"}'},
+            ],
+        }},
+    ]
+    with _patch_stream(events):
+        resp = await assemble_response(
+            base_url="http://localhost:1234/v1", api_key_env="FAKE",
+            model="llama", messages=[{"role": "user", "content": "hi"}],
+            tools=[{"type": "function", "function": {"name": "message_boss", "parameters": {}}}],
+            params={}, stream_callback=None,
+        )
+    assert resp["finish_reason"] == "tool_call"
+    assert len(resp["tool_calls"]) == 1
+    tc = resp["tool_calls"][0]
+    assert tc["parsed_args"] == {"text": "Hello boss"}
+
+
+async def test_assemble_response_tool_call_dict_args_backfilled_from_completed():
+    """LM Studio may also deliver arguments as a dict object in completed output."""
+    events = [
+        {"type": "response.output_item.added", "item": {
+            "type": "function_call", "call_id": "call_d", "name": "do_stuff",
+        }},
+        {"type": "response.completed", "response": {
+            "status": "completed",
+            "usage": {},
+            "output": [
+                {"type": "function_call", "call_id": "call_d", "name": "do_stuff",
+                 "arguments": {"key": "val"}},
+            ],
+        }},
+    ]
+    with _patch_stream(events):
+        resp = await assemble_response(
+            base_url="http://localhost:1234/v1", api_key_env="FAKE",
+            model="llama", messages=[{"role": "user", "content": "hi"}],
+            tools=[{"type": "function", "function": {"name": "do_stuff", "parameters": {}}}],
+            params={}, stream_callback=None,
+        )
+    tc = resp["tool_calls"][0]
+    assert tc["parsed_args"] == {"key": "val"}
 
 
 async def test_assemble_response_reasoning_tool_call_reasoning_stays_separate():

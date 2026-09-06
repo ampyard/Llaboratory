@@ -295,10 +295,6 @@ async def assemble_response(
 
     raw_request = _build_responses_payload(model, messages, tools, params)
 
-    import logging
-    _log = logging.getLogger("responses_provider")
-    _log.warning("RESPONSES_API tools sent: %s", json.dumps(raw_request.get("tools", []), indent=2)[:2000])
-
     async for event in stream_responses(base_url, api_key_env, model, messages, tools, dict(params)):
         raw_events.append(event)
         etype = event.get("type")
@@ -317,7 +313,6 @@ async def assemble_response(
                 init_args = item.get("arguments", "") or ""
                 if not isinstance(init_args, str):
                     init_args = json.dumps(init_args)
-                _log.warning("FUNCTION_CALL_ADDED name=%s call_id=%s arguments=%r", item.get("name"), call_id, init_args)
                 tc_buffers[call_id] = {
                     "tool_call_id": call_id,
                     "name": item.get("name", ""),
@@ -338,7 +333,6 @@ async def assemble_response(
             call_id = event.get("call_id")
             delta = event.get("delta", "")
             if call_id and call_id in tc_buffers and delta:
-                _log.warning("FUNCTION_CALL_DELTA call_id=%s delta=%r", call_id, delta)
                 tc_buffers[call_id]["args_buffer"] += delta
                 block = tc_blocks.get(call_id)
                 if block is not None:
@@ -395,7 +389,6 @@ async def assemble_response(
                         block = tc_blocks.get(oc_id)
                         if block is not None:
                             block["raw_args"] = oc_args
-                        _log.warning("BACKFILL_ARGS call_id=%s args=%r", oc_id, oc_args)
 
             # Override finish reason from completion status if not already set
             if finish_reason_raw is None:
@@ -451,10 +444,7 @@ async def assemble_response(
         try:
             parsed_args = json.loads(raw_args) if raw_args.strip() else {}
         except json.JSONDecodeError:
-            import logging
-            logging.warning("Malformed tool args for %s: %r", buf["name"], raw_args)
             parsed_args = {}
-        _log.warning("FINAL_TOOL_CALL name=%s raw_args=%r parsed_args=%r", buf["name"], raw_args, parsed_args)
         tc = {
             "tool_call_id": buf["tool_call_id"],
             "name": buf["name"],

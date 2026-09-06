@@ -48,11 +48,13 @@ def _map_tools_to_response_format(tools: list[dict]) -> list[dict]:
     out: list[dict] = []
     for t in tools:
         fn = t.get("function", {})
+        params = fn.get("parameters", {"type": "object", "properties": {}})
         out.append({
             "type": "function",
             "name": fn.get("name", ""),
             "description": fn.get("description", ""),
-            "parameters": fn.get("parameters", {"type": "object", "properties": {}}),
+            "parameters": params,
+            "strict": True,
         })
     return out
 

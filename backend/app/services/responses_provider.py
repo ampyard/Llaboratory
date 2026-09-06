@@ -293,6 +293,10 @@ async def assemble_response(
 
     raw_request = _build_responses_payload(model, messages, tools, params)
 
+    import logging
+    _log = logging.getLogger("responses_provider")
+    _log.warning("RESPONSES_API tools sent: %s", json.dumps(raw_request.get("tools", []), indent=2)[:2000])
+
     async for event in stream_responses(base_url, api_key_env, model, messages, tools, dict(params)):
         raw_events.append(event)
         etype = event.get("type")
@@ -308,12 +312,16 @@ async def assemble_response(
             item_type = item.get("type")
             if item_type == "function_call":
                 call_id = item.get("call_id") or str(uuid.uuid4())
+                init_args = item.get("arguments", "") or ""
+                if not isinstance(init_args, str):
+                    init_args = json.dumps(init_args)
+                _log.warning("FUNCTION_CALL_ADDED name=%s call_id=%s arguments=%r", item.get("name"), call_id, init_args)
                 tc_buffers[call_id] = {
                     "tool_call_id": call_id,
                     "name": item.get("name", ""),
-                    "args_buffer": item.get("arguments", "") or "",
+                    "args_buffer": init_args,
                 }
-                block = {"type": "tool_call", "tool_call_id": call_id, "name": item.get("name", ""), "raw_args": item.get("arguments", "") or ""}
+                block = {"type": "tool_call", "tool_call_id": call_id, "name": item.get("name", ""), "raw_args": init_args}
                 tc_blocks[call_id] = block
                 tc_call_order.append(call_id)
                 content_parts.append(block)
@@ -328,6 +336,7 @@ async def assemble_response(
             call_id = event.get("call_id")
             delta = event.get("delta", "")
             if call_id and call_id in tc_buffers and delta:
+                _log.warning("FUNCTION_CALL_DELTA call_id=%s delta=%r", call_id, delta)
                 tc_buffers[call_id]["args_buffer"] += delta
                 block = tc_blocks.get(call_id)
                 if block is not None:
@@ -427,6 +436,7 @@ async def assemble_response(
             import logging
             logging.warning("Malformed tool args for %s: %r", buf["name"], raw_args)
             parsed_args = {}
+        _log.warning("FINAL_TOOL_CALL name=%s raw_args=%r parsed_args=%r", buf["name"], raw_args, parsed_args)
         tc = {
             "tool_call_id": buf["tool_call_id"],
             "name": buf["name"],

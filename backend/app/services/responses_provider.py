@@ -381,6 +381,22 @@ async def assemble_response(
                 if u.get("reasoning_tokens"):
                     token_usage["reasoning_tokens"] = u["reasoning_tokens"]
 
+            # LM Studio may deliver full function call arguments in the
+            # completed response's output array instead of streaming them as
+            # deltas. Backfill any empty args_buffer entries from there.
+            for output_item in resp.get("output") or []:
+                if output_item.get("type") == "function_call":
+                    oc_id = output_item.get("call_id")
+                    oc_args = output_item.get("arguments", "")
+                    if oc_id and oc_id in tc_buffers and not tc_buffers[oc_id]["args_buffer"].strip():
+                        if isinstance(oc_args, dict):
+                            oc_args = json.dumps(oc_args)
+                        tc_buffers[oc_id]["args_buffer"] = oc_args
+                        block = tc_blocks.get(oc_id)
+                        if block is not None:
+                            block["raw_args"] = oc_args
+                        _log.warning("BACKFILL_ARGS call_id=%s args=%r", oc_id, oc_args)
+
             # Override finish reason from completion status if not already set
             if finish_reason_raw is None:
                 status = resp.get("status")

@@ -27,6 +27,12 @@ docker compose up --build
 
 Open http://localhost:5173 for the UI. The frontend will proxy API calls to the backend container on port 8000.
 
+### Backend + Frontend (Windows only)
+
+```
+.\dev.ps1
+```
+
 ### Backend
 
 ```bash

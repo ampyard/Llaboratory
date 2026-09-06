@@ -424,7 +424,9 @@ async def assemble_response(
         try:
             parsed_args = json.loads(raw_args) if raw_args.strip() else {}
         except json.JSONDecodeError:
-            parsed_args = {"_raw": raw_args}
+            import logging
+            logging.warning("Malformed tool args for %s: %r", buf["name"], raw_args)
+            parsed_args = {}
         tc = {
             "tool_call_id": buf["tool_call_id"],
             "name": buf["name"],
